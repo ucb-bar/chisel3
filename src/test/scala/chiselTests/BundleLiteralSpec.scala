@@ -3,7 +3,8 @@
 package chiselTests
 
 import chisel3._
-import chisel3.core.FixedPoint
+import chisel3.core.{BundleLitBinding, FixedPoint}
+import chisel3.internal.firrtl.BundleLit
 import chisel3.experimental.RawModule
 import chisel3.testers.BasicTester
 import org.scalatest._
@@ -16,25 +17,46 @@ class BundleLiteralSpec extends ChiselFlatSpec {
     // Bundle literal constructor code, which will be auto-generated using macro annotations in
     // the future.
     import chisel3.core.BundleLitBinding
-    import chisel3.internal.firrtl.{ULit, Width}
+    import chisel3.internal.firrtl.{LitArg, ULit, Width}
+    def LitArg(aVal: UInt, bVal: Bool): BundleLit = BundleLit(Seq(
+        ("a", litArgOfBits(aVal)),
+        ("b", litArgOfBits(bVal))
+      ))
+    def LitArg(aVal: UInt): BundleLit = BundleLit(Seq(
+        ("a", litArgOfBits(aVal))
+      ))
     // Full bundle literal constructor
     def Lit(aVal: UInt, bVal: Bool): MyBundle = {
       val clone = cloneType
-      clone.selfBind(BundleLitBinding(Map(
-        clone.a -> litArgOfBits(aVal),
-        clone.b -> litArgOfBits(bVal)
-      )))
+      clone.selfBind(BundleLitBinding(LitArg(aVal, bVal)))
       clone
     }
     // Partial bundle literal constructor
     def Lit(aVal: UInt): MyBundle = {
       val clone = cloneType
-      clone.selfBind(BundleLitBinding(Map(
-        clone.a -> litArgOfBits(aVal)
-      )))
+      clone.selfBind(BundleLitBinding(LitArg(aVal)))
       clone
     }
   }
+
+  class MyOuterBundle extends Bundle {
+    val c = UInt(8.W)
+    val d = new MyBundle
+
+    // Bundle literal constructor code, which will be auto-generated using macro annotations in
+    // the future.
+    import chisel3.core.BundleLitBinding
+    import chisel3.internal.firrtl.{BundleLit, LitArg, ULit, Width}
+    // Full bundle literal constructor
+    def Lit(aVal: UInt, bVal: Bool, cVal: UInt): MyOuterBundle = {
+      val clone = cloneType
+      BundleLit(Seq(
+        ("c", litArgOfBits(cVal)),
+        ("d", (new MyBundle).LitArg(aVal, bVal))
+      )).bindLitArg(clone)
+    }
+  }
+
 
   "bundle literals" should "work in RTL" in {
     val outsideBundleLit = (new MyBundle).Lit(42.U, true.B)
@@ -69,6 +91,24 @@ class BundleLiteralSpec extends ChiselFlatSpec {
       bundleWire := bundleLit
 
       chisel3.assert(bundleWire.a === 42.U)
+
+      stop()
+    } }
+  }
+
+  "bundles inside of bundles" should "work in RTL" in {
+    assertTesterPasses{ new BasicTester{
+      val bundleLit = (new MyOuterBundle).Lit(42.U, true.B, 22.U)
+      chisel3.assert(bundleLit.c === 22.U)
+      chisel3.assert(bundleLit.d.a === 42.U)
+      chisel3.assert(bundleLit.d.b === true.B)
+
+      val bundleWire = Wire(new MyOuterBundle)
+      bundleWire := bundleLit
+
+      chisel3.assert(bundleWire.c === 22.U)
+      chisel3.assert(bundleWire.d.a === 42.U)
+      chisel3.assert(bundleWire.d.b === true.B)
 
       stop()
     } }

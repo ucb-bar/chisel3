@@ -63,11 +63,12 @@ class LiteralExtractorSpec extends ChiselFlatSpec {
       val y = FixedPoint(8.W, 4.BP)
 
       import chisel3.core.BundleLitBinding
-      def Lit(aVal: SInt, bVal: FixedPoint): InsideBundle = {
+      import chisel3.internal.firrtl.LitArg
+      def Lit(xVal: SInt, yVal: FixedPoint): InsideBundle = {
         val clone = cloneType
-        clone.selfBind(BundleLitBinding(Map(
-          clone.x -> litArgOfBits(aVal),
-          clone.y -> litArgOfBits(bVal)
+        clone.selfBind(BundleLitBinding(Seq(
+          ("x", litArgOfBits(xVal)),
+          ("y", litArgOfBits(yVal))
         )))
         clone
       }
@@ -106,12 +107,12 @@ class LiteralExtractorSpec extends ChiselFlatSpec {
       // Bundle literal constructor code, which will be auto-generated using macro annotations in
       // the future.
       import chisel3.core.BundleLitBinding
-      import chisel3.internal.firrtl.{ULit, Width}
+      import chisel3.internal.firrtl.LitArg
       def Lit(aVal: UInt, bVal: Bool): MyBundle = {
         val clone = cloneType
-        clone.selfBind(BundleLitBinding(Map(
-          clone.a -> litArgOfBits(aVal),
-          clone.b -> litArgOfBits(bVal)
+        clone.selfBind(BundleLitBinding(Seq(
+          ("a", litArgOfBits(aVal)),
+          ("b", litArgOfBits(bVal))
         )))
         clone
       }
