@@ -32,7 +32,7 @@ object Module extends SourceInfoDoc {
                                (implicit sourceInfo: SourceInfo,
                                          compileOptions: CompileOptions): T = {
     if (Builder.readyForModuleConstr) {
-      throwException("Error: Called Module() twice without instantiating a Module." +
+      Builder.exception("Error: Called Module() twice without instantiating a Module." +
                      sourceInfo.makeMessage(" See " + _))
     }
     Builder.readyForModuleConstr = true
@@ -53,10 +53,10 @@ object Module extends SourceInfoDoc {
     val module: T = bc  // bc is actually evaluated here
 
     if (Builder.whenDepth != 0) {
-      throwException("Internal Error! when() scope depth is != 0, this should have been caught!")
+      Builder.exception("Internal Error! when() scope depth is != 0, this should have been caught!")
     }
     if (Builder.readyForModuleConstr) {
-      throwException("Error: attempted to instantiate a Module, but nothing happened. " +
+      Builder.exception("Error: attempted to instantiate a Module, but nothing happened. " +
                      "This is probably due to rewrapping a Module instance with Module()." +
                      sourceInfo.makeMessage(" See " + _))
     }
@@ -161,7 +161,7 @@ package experimental {
     // Builder Internals - this tracks which Module RTL construction belongs to.
     //
     if (!Builder.readyForModuleConstr) {
-      throwException("Error: attempted to instantiate a Module without wrapping it in Module().")
+      Builder.exception("Error: attempted to instantiate a Module without wrapping it in Module().")
     }
     readyForModuleConstr = false
 
@@ -221,9 +221,9 @@ package experimental {
     final lazy val name = try {
       Builder.globalNamespace.name(desiredName)
     } catch {
-      case e: NullPointerException => throwException(
-        s"Error: desiredName of ${this.getClass.getName} is null. Did you evaluate 'name' before all values needed by desiredName were available?", e) // scalastyle:ignore line.size.limit
-      case t: Throwable => throw t
+      case e: NullPointerException => Builder.exception(new ChiselException(
+        s"Error: desiredName of ${this.getClass.getName} is null. Did you evaluate 'name' before all values needed by desiredName were available?", e)) // scalastyle:ignore line.size.limit
+      case t: Throwable => Builder.exception(new Exception(t))
     }
 
     /** Returns a FIRRTL ModuleName that references this object

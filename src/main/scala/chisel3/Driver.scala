@@ -2,7 +2,7 @@
 
 package chisel3
 
-import chisel3.internal.ErrorLog
+import chisel3.internal.{Builder, ErrorLog}
 import chisel3.internal.firrtl._
 import chisel3.experimental.{RawModule, RunFirrtlTransform}
 import chisel3.stage.{ChiselCircuitAnnotation, ChiselGeneratorAnnotation, ChiselStage, ChiselExecutionResultView}
@@ -264,6 +264,12 @@ object Driver extends BackendCompilationUtilities {
   def main(args: Array[String]) {
     execute(Array("--help"), null)
   }
+
+  /**
+    * getErrors - return the error messages generated for this run.
+    * @return a sequence (possibly empty) of error messages for this run.
+    */
+  def getErrorMsgs: Seq[String] = Builder.lastRunErrorMsgs
 
   val version = BuildInfo.version
   val chiselVersionString = BuildInfo.toString

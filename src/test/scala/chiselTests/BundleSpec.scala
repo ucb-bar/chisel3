@@ -4,6 +4,7 @@ package chiselTests
 
 import chisel3._
 import chisel3.testers.BasicTester
+import org.scalactic.Equality
 
 trait BundleSpecUtils {
   class BundleFooBar extends Bundle {
@@ -75,7 +76,8 @@ class BundleSpec extends ChiselFlatSpec with BundleSpecUtils {
   }
 
   "Bundles" should "not be able to use Seq for constructing hardware" in {
-    (the[ChiselException] thrownBy {
+    // This could either be an exception or an error message.
+    val thrown = the[ChiselException] thrownBy {
       elaborate {
         new Module {
           val io = IO(new Bundle {
@@ -83,7 +85,15 @@ class BundleSpec extends ChiselFlatSpec with BundleSpecUtils {
           })
         }
       }
-    }).getMessage should include("Public Seq members cannot be used to define Bundle elements")
+    }
+    // Combine exception and (possible) error messages.
+    val messages: Seq[String] = Seq(thrown.getMessage ) ++ Driver.getErrorMsgs
+    // Since we're not looking for strict string equality, we need to provide our own areEqual method.
+    implicit val containsSubstring = new Equality[String] {
+      def areEqual(element: String, substring: Any): Boolean =
+        element.contains(substring.asInstanceOf[String])
+    }
+    messages should contain("Public Seq members cannot be used to define Bundle elements")
   }
 
   "Bundles" should "be allowed to have Seq if need be" in {

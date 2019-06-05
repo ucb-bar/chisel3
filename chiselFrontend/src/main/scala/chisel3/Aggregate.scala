@@ -9,7 +9,7 @@ import scala.language.experimental.macros
 import chisel3.experimental.BaseModule
 import chisel3.experimental.BundleLiteralException
 import chisel3.internal._
-import chisel3.internal.Builder.pushCommand
+import chisel3.internal.Builder.{exception, pushCommand}
 import chisel3.internal.firrtl._
 import chisel3.internal.sourceinfo._
 
@@ -25,7 +25,7 @@ sealed abstract class Aggregate extends Data {
     val resolvedDirection = SpecifiedDirection.fromParent(parentDirection, specifiedDirection)
     val duplicates = getElements.groupBy(identity).collect { case (x, elts) if elts.size > 1 => x }
     if (!duplicates.isEmpty) {
-      throw new AliasedAggregateFieldException(s"Aggregate $this contains aliased fields $duplicates")
+      Builder.exception(new AliasedAggregateFieldException(s"Aggregate $this contains aliased fields $duplicates"))
     }
     for (child <- getElements) {
       child.bind(ChildBinding(this), resolvedDirection)
@@ -37,8 +37,8 @@ sealed abstract class Aggregate extends Data {
       case Some(dir) => dir
       case None =>
         val childWithDirections = getElements zip getElements.map(_.direction)
-        throw MixedDirectionAggregateException(
-            s"Aggregate '$this' can't have elements that are both directioned and undirectioned: $childWithDirections")
+        Builder.exception(MixedDirectionAggregateException(
+            s"Aggregate '$this' can't have elements that are both directioned and undirectioned: $childWithDirections"))
     }
   }
 
@@ -440,6 +440,8 @@ abstract class Record(private[chisel3] implicit val compileOptions: CompileOptio
       super.bind(target, parentDirection)
     } catch {  // nasty compatibility mode shim, where anything flies
       case e: MixedDirectionAggregateException if !compileOptions.dontAssumeDirectionality =>
+        // Indicate this is not an error/exception.
+        Builder.clearException(e)
         val resolvedDirection = SpecifiedDirection.fromParent(parentDirection, specifiedDirection)
         direction = resolvedDirection match {
           case SpecifiedDirection.Unspecified => ActualDirection.Bidirectional(ActualDirection.Default)
@@ -497,42 +499,42 @@ abstract class Record(private[chisel3] implicit val compileOptions: CompileOptio
     // Create the Bundle literal binding from litargs of arguments
     val bundleLitMap = elems.map { fn => fn(clone) }.flatMap { case (field, value) =>
       val fieldName = cloneFields.getOrElse(field,
-        throw new BundleLiteralException(s"field $field (with value $value) is not a field," +
+        Builder.exception(new BundleLiteralException(s"field $field (with value $value) is not a field," +
           s" ensure the field is specified as a function returning a field on an object of class ${this.getClass}," +
-          s" eg '_.a' to select hypothetical bundle field 'a'")
+          s" eg '_.a' to select hypothetical bundle field 'a'"))
       )
       val valueBinding = value.topBindingOpt match {
         case Some(litBinding: LitBinding) => litBinding
-        case _ => throw new BundleLiteralException(s"field $fieldName specified with non-literal value $value")
+        case _ => Builder.exception(new BundleLiteralException(s"field $fieldName specified with non-literal value $value"))
       }
 
       field match {  // Get the litArg(s) for this field
         case field: Bits =>
           if (field.getClass != value.getClass) {  // TODO typeEquivalent is too strict because it checks width
-            throw new BundleLiteralException(s"Field $fieldName $field specified with non-type-equivalent value $value")
+            Builder.exception(new BundleLiteralException(s"Field $fieldName $field specified with non-type-equivalent value $value"))
           }
           val litArg = valueBinding match {
             case ElementLitBinding(litArg) => litArg
             case BundleLitBinding(litMap) => litMap.getOrElse(value,
-                throw new BundleLiteralException(s"Field $fieldName specified with unspecified value"))
+                Builder.exception(new BundleLiteralException(s"Field $fieldName specified with unspecified value")))
           }
           Seq(field -> litArg)
         case field: Record =>
           if (!(field typeEquivalent value)) {
-            throw new BundleLiteralException(s"field $fieldName $field specified with non-type-equivalent value $value")
+            Builder.exception(new BundleLiteralException(s"field $fieldName $field specified with non-type-equivalent value $value"))
           }
           // Copy the source BundleLitBinding with fields (keys) remapped to the clone
           val remap = getMatchedFields(value, field).toMap
           value.topBinding.asInstanceOf[BundleLitBinding].litMap.map { case (valueField, valueValue) =>
             remap(valueField) -> valueValue
           }
-        case _ => throw new BundleLiteralException(s"unsupported field $fieldName of type $field")
+        case _ => Builder.exception(new BundleLiteralException(s"unsupported field $fieldName of type $field"))
       }
     }  // don't convert to a Map yet to preserve duplicate keys
     val duplicates = bundleLitMap.map(_._1).groupBy(identity).collect { case (x, elts) if elts.size > 1 => x }
     if (!duplicates.isEmpty) {
       val duplicateNames = duplicates.map(cloneFields(_)).mkString(", ")
-      throw new BundleLiteralException(s"duplicate fields $duplicateNames in Bundle literal constructor")
+      Builder.exception(new BundleLiteralException(s"duplicate fields $duplicateNames in Bundle literal constructor"))
     }
     clone.bind(BundleLitBinding(bundleLitMap.toMap))
     clone
@@ -706,11 +708,12 @@ abstract class Bundle(implicit compileOptions: CompileOptions) extends Record {
             m.invoke(this) match {
               case s: scala.collection.Seq[Any] if s.nonEmpty => s.head match {
                 // Ignore empty Seq()
-                case d: Data => throwException("Public Seq members cannot be used to define Bundle elements " +
+                case d: Data =>
+                  Builder.exception("Public Seq members cannot be used to define Bundle elements " +
                   s"(found public Seq member '${m.getName}'). " +
                   "Either use a Vec if all elements are of the same type, or MixedVec if the elements " +
                   "are of different types. If this Seq member is not intended to construct RTL, mix in the trait " +
-                  "IgnoreSeqInBundle.")
+                  "IgnoreSeqInBundle.", {})
                 case _ => // don't care about non-Data Seq
               }
               case _ => // not a Seq
@@ -755,7 +758,7 @@ abstract class Bundle(implicit compileOptions: CompileOptions) extends Record {
     val clazz = this.getClass
 
     def autoClonetypeError(desc: String): Nothing = {
-      throw new AutoClonetypeException(s"Unable to automatically infer cloneType on $clazz: $desc")
+      Builder.exception(new AutoClonetypeException(s"Unable to automatically infer cloneType on $clazz: $desc"))
     }
 
     def validateClone(clone: Bundle, equivDiagnostic: String): Unit = {

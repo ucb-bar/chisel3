@@ -3,6 +3,7 @@
 package chisel3.util.experimental
 
 import chisel3._
+import chisel3.internal.Builder
 import chisel3.experimental.{RunFirrtlTransform, annotate, ChiselAnnotation}
 import firrtl.annotations._
 import firrtl.ir.{Module => _, _}
@@ -26,7 +27,7 @@ case class ChiselLoadMemoryAnnotation[T <: Data](
   extends ChiselAnnotation with RunFirrtlTransform {
 
   if(fileName.isEmpty) {
-    throw new Exception(
+    Builder.exception(
       s"""LoadMemory from file annotations file empty file name"""
     )
   }
@@ -145,7 +146,7 @@ class LoadMemoryTransform extends Transform {
       .groupBy(_.target.serialize)
     val memoryAnnotations = groups.map { case (key, annos) =>
         if (annos.size > 1) {
-          throw new Exception(
+          Builder.exception(
             s"Multiple (${annos.size} found for memory $key one LoadMemoryAnnotation is allowed per memory"
           )
         }

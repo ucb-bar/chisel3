@@ -16,8 +16,8 @@ object requireIsHardware {
     }
     if (!node.isSynthesizable) {
       val prefix = if (msg.nonEmpty) s"$msg " else ""
-      throw ExpectedHardwareException(s"$prefix'$node' must be hardware, " +
-        "not a bare Chisel type. Perhaps you forgot to wrap it in Wire(_) or IO(_)?")
+      Builder.exception(ExpectedHardwareException(s"$prefix'$node' must be hardware, " +
+        "not a bare Chisel type. Perhaps you forgot to wrap it in Wire(_) or IO(_)?"))
     }
   }
 }
@@ -27,7 +27,7 @@ object requireIsHardware {
 object requireIsChiselType {
   def apply(node: Data, msg: String = ""): Unit = if (node.isSynthesizable) {
     val prefix = if (msg.nonEmpty) s"$msg " else ""
-    throw ExpectedChiselTypeException(s"$prefix'$node' must be a Chisel type, not hardware")
+    Builder.exception(ExpectedChiselTypeException(s"$prefix'$node' must be a Chisel type, not hardware"))
   }
 }
 
@@ -51,7 +51,7 @@ private[chisel3] object BindingDirection {
       case PortBinding(_) => direction match {
         case ActualDirection.Output => Output
         case ActualDirection.Input => Input
-        case dir => throw new RuntimeException(s"Unexpected port element direction '$dir'")
+        case dir => Builder.exception(new RuntimeException(s"Unexpected port element direction '$dir'"))
       }
       case _ => Internal
     }

@@ -5,7 +5,7 @@ import chisel3._
 import chisel3.experimental._
 import chisel3.internal.sourceinfo.{NoSourceInfo, SourceLine, SourceInfo}
 import firrtl.{ir => fir}
-import chisel3.internal.{castToInt, throwException}
+import chisel3.internal.{Builder, castToInt}
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
@@ -72,7 +72,7 @@ private[chisel3] object Converter {
       val lit = bp.asInstanceOf[KnownBinaryPoint].value
       fir.DoPrim(firrtl.PrimOps.AsFixedPoint, Seq(uint), Seq(lit), fir.UnknownType)
     case lit: ILit =>
-      throwException(s"Internal Error! Unexpected ILit: $lit")
+      Builder.exception(s"Internal Error! Unexpected ILit: $lit")
   }
 
   /** Convert Commands that map 1:1 to Statements */

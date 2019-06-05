@@ -6,7 +6,6 @@ import chisel3.experimental.{BaseModule, Param}
 import chisel3.internal.BaseBlackBox
 import chisel3.internal.Builder.pushCommand
 import chisel3.internal.firrtl._
-import chisel3.internal.throwException
 import chisel3.internal.sourceinfo.{SourceInfo, UnlocatableSourceInfo}
 
 package internal {

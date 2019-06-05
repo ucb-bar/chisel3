@@ -64,7 +64,7 @@ private[chisel3] object BiConnect {
           analogAttach(sourceInfo, left_a, right_a, context_mod)
         } catch {
           // If attach fails, convert to BiConnectException
-          case attach.AttachException(message) => throw BiConnectException(message)
+          case attach.AttachException(message) => Builder.exception(BiConnectException(message))
         }
       case (left_e: Element, right_e: Element) => {
         elemConnect(sourceInfo, connectCompileOptions, left_e, right_e, context_mod)
@@ -73,14 +73,14 @@ private[chisel3] object BiConnect {
       // Handle Vec case
       case (left_v: Vec[Data@unchecked], right_v: Vec[Data@unchecked]) => {
         if (left_v.length != right_v.length) {
-          throw MismatchedVecException
+          Builder.exception(MismatchedVecException)
         }
         for (idx <- 0 until left_v.length) {
           try {
             implicit val compileOptions = connectCompileOptions
             connect(sourceInfo, connectCompileOptions, left_v(idx), right_v(idx), context_mod)
           } catch {
-            case BiConnectException(message) => throw BiConnectException(s"($idx)$message")
+            case BiConnectException(message) => Builder.exception(BiConnectException(s"($idx)$message"))
           }
         }
       }
@@ -91,7 +91,7 @@ private[chisel3] object BiConnect {
             implicit val compileOptions = connectCompileOptions
             connect(sourceInfo, connectCompileOptions, left_v(idx), right, context_mod)
           } catch {
-            case BiConnectException(message) => throw BiConnectException(s"($idx)$message")
+            case BiConnectException(message) => Builder.exception(BiConnectException(s"($idx)$message"))
           }
         }
       }
@@ -102,7 +102,7 @@ private[chisel3] object BiConnect {
             implicit val compileOptions = connectCompileOptions
             connect(sourceInfo, connectCompileOptions, left, right_v(idx), context_mod)
           } catch {
-            case BiConnectException(message) => throw BiConnectException(s"($idx)$message")
+            case BiConnectException(message) => Builder.exception(BiConnectException(s"($idx)$message"))
           }
         }
       }
@@ -126,7 +126,7 @@ private[chisel3] object BiConnect {
               try {
                 connect(sourceInfo, connectCompileOptions, left_sub, right, context_mod)
               } catch {
-                case BiConnectException(message) => throw BiConnectException(s".$field$message")
+                case BiConnectException(message) => Builder.exception(BiConnectException(s".$field$message"))
               }
             }
         }
@@ -140,13 +140,13 @@ private[chisel3] object BiConnect {
               try {
                 connect(sourceInfo, connectCompileOptions, left, right_sub, context_mod)
               } catch {
-                case BiConnectException(message) => throw BiConnectException(s".$field$message")
+                case BiConnectException(message) => Builder.exception(BiConnectException(s".$field$message"))
               }
             }
         }
 
       // Left and right are different subtypes of Data so fail
-      case (left, right) => throw MismatchedException(left.toString, right.toString)
+      case (left, right) => Builder.exception(MismatchedException(left.toString, right.toString))
     }
   }
 
@@ -160,7 +160,7 @@ private[chisel3] object BiConnect {
     for((field, right_sub) <- right_r.elements) {
       if(!left_r.elements.isDefinedAt(field)) {
         if (connectCompileOptions.connectFieldsMustMatch) {
-          throw MissingLeftFieldException(field)
+          Builder.exception(MissingLeftFieldException(field))
         }
       }
     }
@@ -171,12 +171,12 @@ private[chisel3] object BiConnect {
           case Some(right_sub) => connect(sourceInfo, connectCompileOptions, left_sub, right_sub, context_mod)
           case None => {
             if (connectCompileOptions.connectFieldsMustMatch) {
-              throw MissingRightFieldException(field)
+              Builder.exception(MissingRightFieldException(field))
             }
           }
         }
       } catch {
-        case BiConnectException(message) => throw BiConnectException(s".$field$message")
+        case BiConnectException(message) => Builder.exception(BiConnectException(s".$field$message"))
       }
     }
   }
@@ -230,9 +230,9 @@ private[chisel3] object BiConnect {
         case (Output,       Output) => issueConnectR2L(left, right)
         case (Internal,     Output) => issueConnectR2L(left, right)
 
-        case (Input,        Output) => throw BothDriversException
-        case (Output,       Input)  => throw NeitherDriverException
-        case (_,            Internal) => throw UnknownRelationException
+        case (Input,        Output) => Builder.exception(BothDriversException)
+        case (Output,       Input)  => Builder.exception(NeitherDriverException)
+        case (_,            Internal) => Builder.exception(UnknownRelationException)
       }
     }
 
@@ -248,9 +248,9 @@ private[chisel3] object BiConnect {
         case (Output,       Output) => issueConnectL2R(left, right)
         case (Output,       Internal)         => issueConnectL2R(left, right)
 
-        case (Input,        Output) => throw NeitherDriverException
-        case (Output,       Input)  => throw BothDriversException
-        case (Internal,     _)      => throw UnknownRelationException
+        case (Input,        Output) => Builder.exception(NeitherDriverException)
+        case (Output,       Input)  => Builder.exception(BothDriversException)
+        case (Internal,     _)      => Builder.exception(UnknownRelationException)
       }
     }
 
@@ -266,11 +266,11 @@ private[chisel3] object BiConnect {
         case (Output,       Internal) => issueConnectR2L(left, right)
         case (Internal,     Input)  => issueConnectR2L(left, right)
 
-        case (Input,        Input)  => throw BothDriversException
-        case (Output,       Output) => throw BothDriversException
+        case (Input,        Input)  => Builder.exception(BothDriversException)
+        case (Output,       Output) => Builder.exception(BothDriversException)
         case (Internal,     Internal) => {
           if (connectCompileOptions.dontAssumeDirectionality) {
-            throw UnknownDriverException
+            Builder.exception(UnknownDriverException)
           } else {
             issueConnectR2L(left, right)
           }
@@ -290,17 +290,17 @@ private[chisel3] object BiConnect {
         case (Input,        Output) => issueConnectR2L(left, right)
         case (Output,       Input)  => issueConnectL2R(left, right)
 
-        case (Input,        Input)  => throw NeitherDriverException
-        case (Output,       Output) => throw BothDriversException
+        case (Input,        Input)  => Builder.exception(NeitherDriverException)
+        case (Output,       Output) => Builder.exception(BothDriversException)
         case (_, Internal)          =>
           if (connectCompileOptions.dontAssumeDirectionality) {
-            throw UnknownRelationException
+            Builder.exception(UnknownRelationException)
           } else {
             issueConnectR2L(left, right)
           }
         case (Internal, _)          =>
           if (connectCompileOptions.dontAssumeDirectionality) {
-            throw UnknownRelationException
+            Builder.exception(UnknownRelationException)
           } else {
             issueConnectR2L(left, right)
           }
@@ -309,7 +309,7 @@ private[chisel3] object BiConnect {
 
     // Not quite sure where left and right are compared to current module
     // so just error out
-    else throw UnknownRelationException
+    else Builder.exception(UnknownRelationException)
   }
 
   // This function checks if analog element-level attaching is allowed
@@ -318,7 +318,7 @@ private[chisel3] object BiConnect {
     // Error if left or right is BICONNECTED in the current module already
     for (elt <- left :: right :: Nil) {
       elt.biConnectLocs.get(contextModule) match {
-        case Some(sl) => throw AttachAlreadyBulkConnectedException(sl)
+        case Some(sl) => Builder.exception(AttachAlreadyBulkConnectedException(sl))
         case None => // Do nothing
       }
     }

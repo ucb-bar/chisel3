@@ -10,7 +10,7 @@ import chisel3.internal.Builder.pushOp
 import chisel3.internal.firrtl.PrimOp._
 import chisel3.internal.firrtl._
 import chisel3.internal.sourceinfo._
-import chisel3.internal.{Binding, Builder, ChildBinding, ConstrainedBinding, InstanceId, throwException}
+import chisel3.internal.{Binding, Builder, ChildBinding, ConstrainedBinding, InstanceId}
 import firrtl.annotations._
 
 
@@ -92,7 +92,7 @@ abstract class EnumType(private val factory: EnumFactory, selfAnnotating: Boolea
     requireIsHardware(other, "bits operated on")
 
     if(!this.typeEquivalent(other)) {
-      throwException(s"Enum types are not equivalent: ${this.enumTypeName}, ${other.enumTypeName}")
+      Builder.exception(s"Enum types are not equivalent: ${this.enumTypeName}, ${other.enumTypeName}")
     }
 
     pushOp(DefPrim(sourceInfo, Bool(), op, this.ref, other.ref))
@@ -268,10 +268,10 @@ abstract class EnumFactory {
     // TODO: These throw ExceptionInInitializerError which can be confusing to the user. Get rid of the error, and just
     // throw an exception
     if (id.litOption.isEmpty) {
-      throwException(s"$enumTypeName defined with a non-literal type")
+      Builder.exception(s"$enumTypeName defined with a non-literal type")
     }
     if (id.litValue() < this.id) {
-      throwException(s"Enums must be strictly increasing: $enumTypeName")
+      Builder.exception(s"Enums must be strictly increasing: $enumTypeName")
     }
 
     this.id = id.litValue()
@@ -285,12 +285,12 @@ abstract class EnumFactory {
     if (n.litOption.isDefined) {
       enumInstances.find(_.litValue == n.litValue) match {
         case Some(result) => result
-        case None => throwException(s"${n.litValue} is not a valid value for $enumTypeName")
+        case None => Builder.exception(s"${n.litValue} is not a valid value for $enumTypeName")
       }
     } else if (!n.isWidthKnown) {
-      throwException(s"Non-literal UInts being cast to $enumTypeName must have a defined width")
+      Builder.exception(s"Non-literal UInts being cast to $enumTypeName must have a defined width")
     } else if (n.getWidth > this.getWidth) {
-      throwException(s"The UInt being cast to $enumTypeName is wider than $enumTypeName's width ($getWidth)")
+      Builder.exception(s"The UInt being cast to $enumTypeName is wider than $enumTypeName's width ($getWidth)")
     } else {
       Builder.warning(s"Casting non-literal UInt to $enumTypeName. You can check that its value is legal by calling isValid")
 

@@ -121,9 +121,9 @@ private[chisel3] trait HasId extends InstanceId {
         case Some(arg) => arg fullName c
         case None => suggested_name.getOrElse("??")
       }
-      case None => throwException("signalName/pathName should be called after circuit elaboration")
+      case None => Builder.exception("signalName/pathName should be called after circuit elaboration")
     }
-    case None => throwException("this cannot happen")
+    case None => Builder.exception("this cannot happen")
   }
   def pathName: String = _parent match {
     case None => instanceName
@@ -131,11 +131,11 @@ private[chisel3] trait HasId extends InstanceId {
   }
   def parentPathName: String = _parent match {
     case Some(p) => p.pathName
-    case None => throwException(s"$instanceName doesn't have a parent")
+    case None => Builder.exception(s"$instanceName doesn't have a parent")
   }
   def parentModName: String = _parent match {
     case Some(p) => p.name
-    case None => throwException(s"$instanceName doesn't have a parent")
+    case None => Builder.exception(s"$instanceName doesn't have a parent")
   }
   // TODO Should this be public?
   protected def circuitName: String = _parent match {
@@ -231,14 +231,14 @@ private[chisel3] object Builder {
   }
   def forcedModule: BaseModule = currentModule match {
     case Some(module) => module
-    case None => throwException(
+    case None => Builder.exception(
       "Error: Not in a Module. Likely cause: Missed Module() wrap or bare chisel API call."
       // A bare api call is, e.g. calling Wire() from the scala console).
     )
   }
   def forcedUserModule: RawModule = currentModule match {
     case Some(module: RawModule) => module
-    case _ => throwException(
+    case _ => Builder.exception(
       "Error: Not in a UserModule. Likely cause: Missed Module() wrap, bare chisel API call, or attempting to construct hardware inside a BlackBox." // scalastyle:ignore line.size.limit
       // A bare api call is, e.g. calling Wire() from the scala console).
     )
@@ -262,10 +262,10 @@ private[chisel3] object Builder {
   }
 
   def forcedClock: Clock = currentClock.getOrElse(
-    throwException("Error: No implicit clock.")
+    Builder.exception("Error: No implicit clock.")
   )
   def forcedReset: Reset = currentReset.getOrElse(
-    throwException("Error: No implicit reset.")
+    Builder.exception("Error: No implicit reset.")
   )
 
   // TODO(twigg): Ideally, binding checks and new bindings would all occur here
@@ -334,23 +334,87 @@ private[chisel3] object Builder {
   def warning(m: => String): Unit = if (dynamicContextVar.value.isDefined) errors.warning(m)
   def deprecated(m: => String, location: Option[String] = None): Unit =
     if (dynamicContextVar.value.isDefined) errors.deprecated(m, location)
-
-  /** Record an exception as an error, and throw it.
+  def errorClear(e: Exception): Unit = if (dynamicContextVar.value.isDefined) errors.clear(e)
+  /** Given a string, record it as an error, return specified result to caller.
     *
     * @param m exception message
+    * @param result result to be returned by this method
+    * @return result passed in by caller.
     */
   @throws(classOf[ChiselException])
-  def exception(m: => String): Unit = {
+  def exception[T](m: => String, result: T): T = {
+    error(m)
+    result
+  }
+  /** Given a string, record it as an error, generate an exception, and throw it.
+    *
+    * @param m exception message
+    * @return does not return.
+    */
+  @throws(classOf[ChiselException])
+  def exception(m: => String): Nothing = {
     error(m)
     throwException(m)
   }
+  /** Record an exception as an error, and return the result specified by the caller.
+    *
+    * @param e exception
+    * @param result result to be returned by this method.
+    * @return result passed in by caller.
+    */
+  def exception[T](e: Exception, result: T): T = {
+    error(e.getMessage)
+    result
+  }
+  /** Record an error, and return the result specified by the caller.
+    *
+    * @param e exception
+    * @param result result to be returned by this method.
+    * @return result passed in by caller.
+    */
+  def exception[T](e: java.lang.Error, result: T): T = {
+    error(e.getMessage)
+    result
+  }
+  /** Record an exception as an error, and throw it.
+    *
+    * @param e exception
+    * @return This method does not return.
+    */
+  @throws(classOf[Exception])
+  def exception(e: Exception): Nothing = {
+    error(e.getMessage)
+    throwException(e)
+  }
+  /** Record an error, and throw it as an exception.
+    *
+    * @param e exception
+    * @return This method does not return.
+    */
+  @throws(classOf[Exception])
+  def exception(e: java.lang.Error): Nothing = {
+    error(e.getMessage)
+    throwException(e)
+  }
+
+  /** Clear any errors reported for this exception.
+    * We assume this is in the same try/catch block that generated the exception.
+    * @param e the Exception to be unrecorded.
+    */
+  def clearException(e: Exception): Unit = {
+    errorClear(e)
+  }
+
+  var lastRunErrorMsgs = Seq[String]()  // error messages generated by the last run.
 
   def build[T <: RawModule](f: => T): Circuit = {
     chiselContext.withValue(new ChiselContext) {
       dynamicContextVar.withValue(Some(new DynamicContext())) {
+        lastRunErrorMsgs = Seq()  // no error messages so far
         errors.info("Elaborating design...")
         val mod = f
         mod.forceName(mod.name, globalNamespace)
+        lastRunErrorMsgs = errors.getErrorMsgs // save any error messages before they disappear.
         errors.checkpoint()
         errors.info("Done elaborating.")
 

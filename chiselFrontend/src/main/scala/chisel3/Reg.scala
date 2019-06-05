@@ -69,7 +69,7 @@ object Reg {
     } else if (init ne null) {
       RegInit(init)
     } else {
-      throwException("cannot infer type")
+      Builder.exception("cannot infer type")
     }
   }
 }

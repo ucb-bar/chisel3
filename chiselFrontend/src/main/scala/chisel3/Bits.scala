@@ -53,7 +53,7 @@ abstract class Element extends Data {
     case Some(ElementLitBinding(litArg)) => litArg
     case Some(BundleLitBinding(litMap)) => litMap.get(this) match {
       case Some(litArg) => litArg
-      case _ => throwException(s"internal error: DontCare should be caught before getting ref")
+      case _ => Builder.exception(s"internal error: DontCare should be caught before getting ref")
     }
     case _ => super.ref
   }
@@ -401,7 +401,7 @@ sealed abstract class Bits(private[chisel3] val width: Width) extends Element wi
 
   /** @group SourceInfoTransformMacro */
   def do_asFixedPoint(that: BinaryPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint = {
-    throwException(s"Cannot call .asFixedPoint on $this")
+    Builder.exception(s"Cannot call .asFixedPoint on $this")
   }
 
   /** Reinterpret cast to Bits. */
@@ -429,7 +429,7 @@ sealed abstract class Bits(private[chisel3] val width: Width) extends Element wi
   final def do_asBool(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): Bool = {
     width match {
       case KnownWidth(1) => this(0)
-      case _ => throwException(s"can't covert ${this.getClass.getSimpleName}$width to Bool")
+      case _ => Builder.exception(s"can't covert ${this.getClass.getSimpleName}$width to Bool")
     }
   }
 
@@ -913,7 +913,7 @@ sealed class UInt private[chisel3] (width: Width) extends Bits(width) with Num[U
         val iLit = ILit(value)
         pushOp(DefPrim(sourceInfo, FixedPoint(width, binaryPoint), AsFixedPointOp, ref, iLit))
       case _ =>
-        throwException(s"cannot call $this.asFixedPoint(binaryPoint=$binaryPoint), you must specify a known binaryPoint")
+        Builder.exception(s"cannot call $this.asFixedPoint(binaryPoint=$binaryPoint), you must specify a known binaryPoint")
     }
   }
 
@@ -1171,7 +1171,7 @@ sealed class SInt private[chisel3] (width: Width) extends Bits(width) with Num[S
         val iLit = ILit(value)
         pushOp(DefPrim(sourceInfo, FixedPoint(width, binaryPoint), AsFixedPointOp, ref, iLit))
       case _ =>
-        throwException(s"cannot call $this.asFixedPoint(binaryPoint=$binaryPoint), you must specify a known binaryPoint")
+        Builder.exception(s"cannot call $this.asFixedPoint(binaryPoint=$binaryPoint), you must specify a known binaryPoint")
     }
   }
 
@@ -1232,7 +1232,7 @@ sealed class Bool() extends UInt(1.W) with Reset {
   def litToBooleanOption: Option[Boolean] = litOption.map {
     case intVal if intVal == 1 => true
     case intVal if intVal == 0 => false
-    case intVal => throwException(s"Boolean with unexpected literal value $intVal")
+    case intVal => Builder.exception(s"Boolean with unexpected literal value $intVal")
   }
 
   /** Convert to a [[scala.Boolean]] */
@@ -1408,9 +1408,9 @@ package experimental {
     override def do_* (that: FixedPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint =
       binop(sourceInfo, FixedPoint(this.width + that.width, this.binaryPoint + that.binaryPoint), TimesOp, that)
     override def do_/ (that: FixedPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint =
-      throwException(s"division is illegal on FixedPoint types")
+      Builder.exception(s"division is illegal on FixedPoint types")
     override def do_% (that: FixedPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint =
-      throwException(s"mod is illegal on FixedPoint types")
+      Builder.exception(s"mod is illegal on FixedPoint types")
 
 
     /** Multiplication operator
@@ -1541,13 +1541,13 @@ package experimental {
 
     /** @group SourceInfoTransformMacro */
     def do_& (that: FixedPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint =
-      throwException(s"And is illegal between $this and $that")
+      Builder.exception(s"And is illegal between $this and $that")
     /** @group SourceInfoTransformMacro */
     def do_| (that: FixedPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint =
-      throwException(s"Or is illegal between $this and $that")
+      Builder.exception(s"Or is illegal between $this and $that")
     /** @group SourceInfoTransformMacro */
     def do_^ (that: FixedPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint =
-      throwException(s"Xor is illegal between $this and $that")
+      Builder.exception(s"Xor is illegal between $this and $that")
 
     final def setBinaryPoint(that: Int): FixedPoint = macro SourceInfoTransform.thatArg
 
@@ -1561,7 +1561,7 @@ package experimental {
 
     /** @group SourceInfoTransformMacro */
     def do_unary_~ (implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): FixedPoint =
-      throwException(s"Not is illegal on $this")
+      Builder.exception(s"Not is illegal on $this")
 
     // TODO(chick): Consider comparison with UInt and SInt
     override def do_< (that: FixedPoint)(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): Bool = compop(sourceInfo, LessOp, that)
@@ -1622,7 +1622,7 @@ package experimental {
           val iLit = ILit(value)
           pushOp(DefPrim(sourceInfo, FixedPoint(width, binaryPoint), AsFixedPointOp, ref, iLit))
         case _ =>
-          throwException(s"cannot call $this.asFixedPoint(binaryPoint=$binaryPoint), you must specify a known binaryPoint")
+          Builder.exception(s"cannot call $this.asFixedPoint(binaryPoint=$binaryPoint), you must specify a known binaryPoint")
       }
     }
 
@@ -1796,7 +1796,7 @@ package experimental {
     private[chisel3] override def bind(target: Binding, parentDirection: SpecifiedDirection) {
       SpecifiedDirection.fromParent(parentDirection, specifiedDirection) match {
         case SpecifiedDirection.Unspecified | SpecifiedDirection.Flip =>
-        case x => throwException(s"Analog may not have explicit direction, got '$x'")
+        case x => Builder.exception(s"Analog may not have explicit direction, got '$x'")
       }
       val targetTopBinding = target match {
         case target: TopBinding => target
@@ -1809,17 +1809,17 @@ package experimental {
       targetTopBinding match {
         case WireBinding(_) => direction = ActualDirection.Unspecified  // internal wire
         case PortBinding(_) => direction = ActualDirection.Bidirectional(ActualDirection.Default)
-        case x => throwException(s"Analog can only be Ports and Wires, not '$x'")
+        case x => Builder.exception(s"Analog can only be Ports and Wires, not '$x'")
       }
       binding = target
     }
 
     override def do_asUInt(implicit sourceInfo: SourceInfo, compileOptions: CompileOptions): UInt =
-      throwException("Analog does not support asUInt")
+      Builder.exception("Analog does not support asUInt")
 
     private[chisel3] override def connectFromBits(that: Bits)(implicit sourceInfo: SourceInfo,
         compileOptions: CompileOptions): Unit = {
-      throwException("Analog does not support connectFromBits")
+      Builder.exception("Analog does not support connectFromBits")
     }
 
     final def toPrintable: Printable = PString("Analog")

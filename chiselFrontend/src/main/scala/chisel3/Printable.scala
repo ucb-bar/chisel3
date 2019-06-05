@@ -3,6 +3,7 @@
 package chisel3
 
 import chisel3.internal.firrtl.Component
+import chisel3.internal.Builder
 
 import scala.collection.mutable
 
@@ -73,7 +74,7 @@ object Printable {
       if (!args.hasNext) {
         val msg = "has no matching argument!\n" + errorMsg(i)
           // Exception wraps msg in s"Format Specifier '$msg'"
-        throw new MissingFormatArgumentException(msg)
+        Builder.exception(new MissingFormatArgumentException(msg))
       }
       args.next()
     }
@@ -90,7 +91,7 @@ object Printable {
           case '%' => Percent
           case x =>
             val msg = s"Illegal format specifier '$x'!\n" + errorMsg(i)
-            throw new UnknownFormatConversionException(msg)
+            Builder.exception(new UnknownFormatConversionException(msg))
         }
         pables += PString(str dropRight 1) // remove format %
         pables += arg
@@ -103,7 +104,7 @@ object Printable {
     }
     if (percent) {
       val msg = s"Trailing %\n" + errorMsg(fmt.size - 1)
-      throw new UnknownFormatConversionException(msg)
+      Builder.exception(new UnknownFormatConversionException(msg))
     }
     require(!args.hasNext,
       s"Too many arguments! More format specifier(s) expected!\n" +
@@ -145,14 +146,14 @@ object FirrtlFormat {
   def apply(specifier: String, data: Data): FirrtlFormat = {
     val bits = data match {
       case b: Bits => b
-      case d => throw new Exception(s"Trying to construct FirrtlFormat with non-bits $d!")
+      case d => Builder.exception(s"Trying to construct FirrtlFormat with non-bits $d!")
     }
     specifier match {
       case "d" => Decimal(bits)
       case "x" => Hexadecimal(bits)
       case "b" => Binary(bits)
       case "c" => Character(bits)
-      case c => throw new Exception(s"Illegal format specifier '$c'!")
+      case c => Builder.exception(s"Illegal format specifier '$c'!")
     }
   }
 }

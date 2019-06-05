@@ -4,7 +4,7 @@ package chisel3.util.experimental
 
 import chisel3._
 import chisel3.experimental.{ChiselAnnotation, RunFirrtlTransform, annotate}
-import chisel3.internal.{InstanceId, NamedComponent, Namespace}
+import chisel3.internal.{Builder, InstanceId, NamedComponent, Namespace}
 import firrtl.transforms.{DontTouchAnnotation, NoDedupAnnotation}
 import firrtl.passes.wiring.{WiringTransform, SourceAnnotation, SinkAnnotation}
 import firrtl.annotations.{ModuleName, ComponentName}
@@ -156,11 +156,13 @@ object BoringUtils {
     forceExists: Boolean = false): Unit = {
 
     if (forceExists && !checkName(name)) {
-      throw new BoringUtilsException(s"Sink ID '$name' not found in BoringUtils ID namespace") }
+      Builder.exception(new BoringUtilsException(s"Sink ID '$name' not found in BoringUtils ID namespace"), {})
+    }
     def moduleName = component.toNamed match {
       case c: ModuleName => c
       case c: ComponentName => c.module
-      case _ => throw new ChiselException("Can only add a Module or Component sink", null)
+      case _ =>
+        Builder.exception(new ChiselException("Can only add a Module or Component sink", null))
     }
     val maybeDedup =
       if (disableDedup) { Seq(new ChiselAnnotation { def toFirrtl = NoDedupAnnotation(moduleName) }) }

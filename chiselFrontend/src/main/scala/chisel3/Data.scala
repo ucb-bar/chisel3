@@ -5,7 +5,7 @@ package chisel3
 import scala.language.experimental.macros
 
 import chisel3.experimental.{Analog, DataMirror, FixedPoint}
-import chisel3.internal.Builder.pushCommand
+import chisel3.internal.Builder.{exception, pushCommand}
 import chisel3.internal._
 import chisel3.internal.firrtl._
 import chisel3.internal.sourceinfo.{SourceInfo, SourceInfoTransform, UnlocatableSourceInfo, DeprecatedSourceInfo}
@@ -102,7 +102,7 @@ object ActualDirection {
       containerDirection match {
         case SpecifiedDirection.Unspecified => Some(ActualDirection.Bidirectional(ActualDirection.Default))
         case SpecifiedDirection.Flip => Some(ActualDirection.Bidirectional(ActualDirection.Flipped))
-        case _ => throw new RuntimeException("Unexpected forced Input / Output")
+        case _ => Builder.exception(new RuntimeException("Unexpected forced Input / Output"))
       }
     } else {
       None
@@ -192,8 +192,8 @@ private[chisel3] object cloneSupertype {
           }
         }
         case (elt1, elt2) =>
-          throw new AssertionError(
-            s"can't create $createdType with heterogeneous types ${elt1.getClass} and ${elt2.getClass}")
+          Builder.exception(new AssertionError(
+            s"can't create $createdType with heterogeneous types ${elt1.getClass} and ${elt2.getClass}"))
       }).asInstanceOf[T] }
       model.cloneTypeFull
     }
@@ -271,7 +271,7 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
     this match {
       case elt: Aggregate => elt.getElements.toIndexedSeq flatMap {_.flatten}
       case elt: Element => IndexedSeq(elt)
-      case elt => throwException(s"Cannot flatten type ${elt.getClass}")
+      case elt => Builder.exception(s"Cannot flatten type ${elt.getClass}")
     }
   }
 
@@ -284,7 +284,7 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
       this match {
         // Anything flies in compatibility mode
         case t: Record if !t.compileOptions.dontAssumeDirectionality =>
-        case _ => throw RebindingException(s"Attempted reassignment of user-specified direction to $this")
+        case _ => Builder.exception(RebindingException(s"Attempted reassignment of user-specified direction to $this"))
       }
     }
     _specifiedDirection = direction
@@ -311,7 +311,7 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
   protected[chisel3] def binding: Option[Binding] = _binding
   protected def binding_=(target: Binding) {
     if (_binding.isDefined) {
-      throw RebindingException(s"Attempted reassignment of binding to $this")
+      Builder.exception(RebindingException(s"Attempted reassignment of binding to $this"))
     }
     _binding = Some(target)
   }
@@ -349,7 +349,7 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
   private[chisel3] def direction: ActualDirection = _direction.get
   private[chisel3] def direction_=(actualDirection: ActualDirection) {
     if (_direction.isDefined) {
-      throw RebindingException(s"Attempted reassignment of resolved direction to $this")
+      Builder.exception(RebindingException(s"Attempted reassignment of resolved direction to $this"))
     }
     _direction = Some(actualDirection)
   }
@@ -381,20 +381,20 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
   private[chisel3] def allElements: Seq[Element]
 
   private[chisel3] def badConnect(that: Data)(implicit sourceInfo: SourceInfo): Unit =
-    throwException(s"cannot connect ${this} and ${that}")
+    Builder.exception(s"cannot connect ${this} and ${that}")
   private[chisel3] def connect(that: Data)(implicit sourceInfo: SourceInfo, connectCompileOptions: CompileOptions): Unit = { // scalastyle:ignore line.size.limit
     if (connectCompileOptions.checkSynthesizable) {
       requireIsHardware(this, "data to be connected")
       requireIsHardware(that, "data to be connected")
       this.topBinding match {
-        case _: ReadOnlyBinding => throwException(s"Cannot reassign to read-only $this")
+        case _: ReadOnlyBinding => Builder.exception(s"Cannot reassign to read-only $this")
         case _ =>  // fine
       }
       try {
         MonoConnect.connect(sourceInfo, connectCompileOptions, this, that, Builder.forcedUserModule)
       } catch {
         case MonoConnectException(message) =>
-          throwException(
+          Builder.exception(
             s"Connection between sink ($this) and source ($that) failed @$message"
           )
       }
@@ -407,16 +407,16 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
       requireIsHardware(this, s"data to be bulk-connected")
       requireIsHardware(that, s"data to be bulk-connected")
       (this.topBinding, that.topBinding) match {
-        case (_: ReadOnlyBinding, _: ReadOnlyBinding) => throwException(s"Both $this and $that are read-only")
+        case (_: ReadOnlyBinding, _: ReadOnlyBinding) => Builder.exception("Both $this and $that are read-only")
         // DontCare cannot be a sink (LHS)
-        case (_: DontCareBinding, _) => throw BiConnect.DontCareCantBeSink
+        case (_: DontCareBinding, _) => Builder.exception(BiConnect.DontCareCantBeSink)
         case _ =>  // fine
       }
       try {
         BiConnect.connect(sourceInfo, connectCompileOptions, this, that, Builder.forcedUserModule)
       } catch {
         case BiConnectException(message) =>
-          throwException(
+          Builder.exception(
             s"Connection between left ($this) and source ($that) failed @$message"
           )
       }
@@ -434,9 +434,9 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
   private[chisel3] def lref: Node = {
     requireIsHardware(this)
     topBindingOpt match {
-      case Some(binding: ReadOnlyBinding) => throwException(s"internal error: attempted to generate LHS ref to ReadOnlyBinding $binding") // scalastyle:ignore line.size.limit
+      case Some(binding: ReadOnlyBinding) => Builder.exception(s"internal error: attempted to generate LHS ref to ReadOnlyBinding $binding") // scalastyle:ignore line.size.limit
       case Some(binding: TopBinding) => Node(this)
-      case opt => throwException(s"internal error: unknown binding $opt in generating LHS ref")
+      case opt => Builder.exception(s"internal error: unknown binding $opt in generating LHS ref")
     }
   }
 
@@ -445,9 +445,9 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
   private[chisel3] def ref: Arg = {
     requireIsHardware(this)
     topBindingOpt match {
-      case Some(binding: LitBinding) => throwException(s"internal error: can't handle literal binding $binding")
+      case Some(binding: LitBinding) => Builder.exception(s"internal error: can't handle literal binding $binding")
       case Some(binding: TopBinding) => Node(this)
-      case opt => throwException(s"internal error: unknown binding $opt in generating LHS ref")
+      case opt => Builder.exception(s"internal error: unknown binding $opt in generating LHS ref")
     }
   }
 
@@ -516,7 +516,7 @@ abstract class Data extends HasId with NamedComponent with SourceInfoDoc { // sc
 
   /** Returns the width, in bits, if currently known. */
   final def getWidth: Int =
-    if (isWidthKnown) width.get else throwException(s"Width of $this is unknown!")
+    if (isWidthKnown) width.get else Builder.exception(s"Width of $this is unknown!")
   /** Returns whether the width is currently known. */
   final def isWidthKnown: Boolean = width.known
   /** Returns Some(width) if the width is known, else None. */
