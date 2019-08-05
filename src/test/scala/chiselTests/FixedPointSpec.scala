@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.experimental.FixedPoint
 import chisel3.internal.firrtl.{BinaryPoint, Width}
@@ -132,19 +133,19 @@ class FixedPointLitExtractTester extends BasicTester {
 }
 
 class FixedPointSpec extends ChiselPropSpec {
-  property("should allow set binary point") {
+  property("should allow set binary point", TagRequiresSimulator) {
     assertTesterPasses { new SBPTester }
   }
-  property("should allow fromBits") {
+  property("should allow fromBits", TagRequiresSimulator) {
     assertTesterPasses { new FixedPointFromBitsTester }
   }
-  property("should mux different widths and binary points") {
+  property("should mux different widths and binary points", TagRequiresSimulator) {
     assertTesterPasses { new FixedPointMuxTester }
   }
   property("Negative shift amounts are invalid") {
     a [ChiselException] should be thrownBy { elaborate(new NegativeShift(FixedPoint(1.W, 0.BP))) }
   }
-  property("Bit extraction on literals should work for all non-negative indices") {
+  property("Bit extraction on literals should work for all non-negative indices", TagRequiresSimulator) {
     assertTesterPasses(new FixedPointLitExtractTester)
   }
 }

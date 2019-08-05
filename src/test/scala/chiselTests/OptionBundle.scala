@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.testers.BasicTester
 
@@ -44,12 +45,12 @@ class InvalidOptionBundleTester() extends BasicTester {
 }
 
 class OptionBundleSpec extends ChiselFlatSpec {
-  "A Bundle with an Option field" should "work properly if the Option field is not None" in {
+  "A Bundle with an Option field" should "work properly if the Option field is not None" taggedAs(TagRequiresSimulator) in {
     assertTesterPasses { new SomeOptionBundleTester(true) }
     assertTesterPasses { new SomeOptionBundleTester(false) }
   }
 
-  "A Bundle with an Option field" should "compile if the Option field is None" in {
+  "A Bundle with an Option field" should "compile if the Option field is None" taggedAs(TagRequiresSimulator) in {
     assertTesterPasses { new NoneOptionBundleTester() }
   }
 

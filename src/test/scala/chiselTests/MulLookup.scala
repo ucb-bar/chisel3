@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.testers.BasicTester
 
@@ -29,8 +30,7 @@ class MulLookupTester(w: Int, x: Int, y: Int) extends BasicTester {
 }
 
 class MulLookupSpec extends ChiselPropSpec {
-
-  property("Mul lookup table should return the correct result") {
+  property("Mul lookup table should return the correct result", TagRequiresSimulator) {
     forAll(smallPosInts, smallPosInts) { (x: Int, y: Int) =>
       assertTesterPasses{ new MulLookupTester(3, x, y) }
     }

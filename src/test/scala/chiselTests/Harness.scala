@@ -4,6 +4,7 @@ package chiselTests
 
 import java.io.File
 
+import tags.TagRequiresSimulator
 import firrtl.util.BackendCompilationUtilities
 
 class HarnessSpec extends ChiselPropSpec
@@ -65,13 +66,13 @@ void vl_finish(const char* filename, int linenum, const char* hier) {
     (path, target)
   }
 
-  property("Test making trivial verilog harness and executing") {
+  property("Test making trivial verilog harness and executing", TagRequiresSimulator) {
     val (path, target) = simpleHarnessBackend(makeTrivialVerilog)
 
     assert(executeExpectingSuccess(target, path))
   }
 
-  property("Test that assertion failues in Verilog are caught") {
+  property("Test that assertion failues in Verilog are caught", TagRequiresSimulator) {
     val (path, target) = simpleHarnessBackend(makeFailingVerilog)
 
     assert(!executeExpectingSuccess(target, path))

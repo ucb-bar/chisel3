@@ -2,6 +2,7 @@
 
 package cookbook
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.util._
 import chisel3.experimental.ChiselEnum
@@ -60,7 +61,7 @@ class DetectTwoOnesTester extends CookbookTester(10) {
 }
 
 class FSMSpec extends CookbookSpec {
-  "DetectTwoOnes" should "work" in {
+  "DetectTwoOnes" should "work" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new DetectTwoOnesTester }
   }
 }

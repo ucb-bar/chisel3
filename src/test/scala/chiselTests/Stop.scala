@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.testers.BasicTester
 
@@ -19,11 +20,11 @@ class StopImmediatelyTester extends BasicTester {
 }
 
 class StopSpec extends ChiselFlatSpec {
-  "stop()" should "stop and succeed the testbench" in {
+  "stop()" should "stop and succeed the testbench" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new StopTester }
   }
 
-  it should "end the simulation immediately" in {
+  it should "end the simulation immediately" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new StopImmediatelyTester }
   }
 }

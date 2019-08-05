@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.testers.BasicTester
 import chisel3.util._
@@ -48,7 +49,7 @@ class TblTester(w: Int, n: Int, idxs: List[Int], values: List[Int]) extends Basi
 }
 
 class TblSpec extends ChiselPropSpec {
-  property("All table reads should return the previous write") {
+  property("All table reads should return the previous write", TagRequiresSimulator) {
     forAll(safeUIntPairN(8)) { case(w: Int, pairs: List[(Int, Int)]) =>
       // Provide an appropriate whenever clause.
       // ScalaTest will try and shrink the values on error to determine the smallest values that cause the error.

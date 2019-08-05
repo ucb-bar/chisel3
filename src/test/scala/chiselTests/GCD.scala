@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.testers.BasicTester
 
@@ -50,7 +51,7 @@ class GCDSpec extends ChiselPropSpec {
     elaborate { new GCD }
   }
 
-  property("GCDTester should return the correct result") {
+  property("GCDTester should return the correct result", TagRequiresSimulator) {
     forAll (gcds) { (a: Int, b: Int, z: Int) =>
       assertTesterPasses{ new GCDTester(a, b, z) }
     }

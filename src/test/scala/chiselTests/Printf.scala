@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.testers.BasicTester
 
@@ -29,16 +30,16 @@ class ASCIIPrintableTester extends BasicTester {
 }
 
 class PrintfSpec extends ChiselFlatSpec {
-  "A printf with a single argument" should "run" in {
+  "A printf with a single argument" should "run" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new SinglePrintfTester }
   }
-  "A printf with multiple arguments" should "run" in {
+  "A printf with multiple arguments" should "run" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new MultiPrintfTester }
   }
-  "A printf with ASCII characters 1-127" should "run" in {
+  "A printf with ASCII characters 1-127" should "run" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new ASCIIPrintfTester }
   }
-  "A printf with Printable ASCII characters 1-127" should "run" in {
+  "A printf with Printable ASCII characters 1-127" should "run" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new ASCIIPrintableTester }
   }
 }

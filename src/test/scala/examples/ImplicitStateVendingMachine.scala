@@ -2,6 +2,7 @@
 
 package examples
 
+import tags.TagRequiresSimulator
 import chiselTests.ChiselFlatSpec
 import chisel3._
 
@@ -25,7 +26,7 @@ class ImplicitStateVendingMachine extends SimpleVendingMachine {
 }
 
 class ImplicitStateVendingMachineSpec extends ChiselFlatSpec {
-  "An vending machine implemented with implicit state" should "work" in {
+  "An vending machine implemented with implicit state" should "work" taggedAs (TagRequiresSimulator) in {
     assertTesterPasses { new SimpleVendingMachineTester(new ImplicitStateVendingMachine) }
   }
 }

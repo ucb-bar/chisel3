@@ -2,6 +2,7 @@
 
 package chiselTests
 
+import tags.TagRequiresSimulator
 import chisel3._
 import chisel3.experimental.RawModule
 import chisel3.testers.BasicTester
@@ -24,11 +25,11 @@ class WithClockAndNoReset extends RawModule {
 
 
 class ClockSpec extends ChiselPropSpec {
-  property("Bool.asClock.asUInt should pass a signal through unaltered") {
+  property("Bool.asClock.asUInt should pass a signal through unaltered", TagRequiresSimulator) {
     assertTesterPasses { new ClockAsUIntTester }
   }
 
-  property("Should be able to use withClock in a module with no reset") {
+  property("Should be able to use withClock in a module with no reset", TagRequiresSimulator) {
     val circuit = Driver.emit { () => new WithClockAndNoReset }
     circuit.contains("reg a : UInt<1>, clock2") should be (true)
   }
