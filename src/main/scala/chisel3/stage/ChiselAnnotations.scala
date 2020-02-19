@@ -2,13 +2,20 @@
 
 package chisel3.stage
 
+import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
+
 import firrtl.annotations.{Annotation, NoTargetAnnotation}
 import firrtl.options.{HasShellOptions, OptionsException, ShellOption, Unserializable}
 import chisel3.{ChiselException, Module}
 import chisel3.RawModule
-import chisel3.internal.Builder
+import chisel3.experimental.BaseModule
+import chisel3.incremental.Stash
+import chisel3.internal.{Builder, throwException}
 import chisel3.internal.firrtl.Circuit
-import firrtl.AnnotationSeq
+import com.twitter.chill.MeatLocker
+import firrtl.{AnnotationSeq, RenameMap}
+
+import scala.collection.mutable
 
 /** Mixin that indicates that this is an [[firrtl.annotations.Annotation]] used to generate a [[ChiselOptions]] view.
   */
@@ -42,19 +49,40 @@ case object PrintFullStackTraceAnnotation extends NoTargetAnnotation with Chisel
 /** An [[firrtl.annotations.Annotation]] storing a function that returns a Chisel module
   * @param gen a generator function
   */
-case class ChiselGeneratorAnnotation(gen: () => RawModule) extends NoTargetAnnotation with Unserializable {
+case class ChiselGeneratorAnnotation(gen: () => RawModule, stashOpt: Option[Stash] = None) extends NoTargetAnnotation with Unserializable {
 
   /** Run elaboration on the Chisel module generator function stored by this [[firrtl.annotations.Annotation]]
     */
-  def elaborate: AnnotationSeq  = try {
-    val (circuit, dut) = Builder.build(Module(gen()))
-    Seq(ChiselCircuitAnnotation(circuit), DesignAnnotation(dut))
-  } catch {
-    case e @ (_: OptionsException | _: ChiselException) => throw e
-    case e: Throwable =>
-      throw new OptionsException(s"Exception thrown when elaborating ChiselGeneratorAnnotation", e)
+  def elaborate: AnnotationSeq =  {
+    //try {
+      val (circuit, dut, stash) = Builder.build(Module(gen()), stashOpt)
+      Seq(ChiselCircuitAnnotation(circuit), DesignAnnotation(dut), stash)
+    //} catch {
+    //  case e @ (_: OptionsException | _: ChiselException) => throw e
+    //  case e: Throwable =>
+    //    throw new OptionsException(s"Exception thrown when elaborating ChiselGeneratorAnnotation", e)
+    //}
   }
 
+  /*
+  def elaborateWithCache(cache: ChiselCacheAnnotation): AnnotationSeq  = {
+    try {
+      println("HERE2")
+      val (circuit, dut, resCache) = Builder.buildWithCache(cache.getCache, Module(gen()))
+      cache.writeCache(resCache)
+      Seq(ChiselCircuitAnnotation(circuit), DesignAnnotation(dut))
+    } catch {
+      case e @ (_: OptionsException | _: ChiselException) => throw e
+      case e: Throwable =>
+        throw new OptionsException(s"Exception thrown when elaborating ChiselGeneratorAnnotation", e)
+    }
+  }
+
+  def reload: RawModule = {
+    val dut = Builder.reload(gen())
+    dut
+  }
+   */
 }
 
 object ChiselGeneratorAnnotation extends HasShellOptions {

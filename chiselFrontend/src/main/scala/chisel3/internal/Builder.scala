@@ -6,9 +6,11 @@ import scala.util.DynamicVariable
 import scala.collection.mutable.ArrayBuffer
 import chisel3._
 import chisel3.experimental._
-import chisel3.internal.firrtl._
 import chisel3.internal.naming._
 import _root_.firrtl.annotations.{CircuitName, ComponentName, IsMember, ModuleName, Named, ReferenceTarget}
+import _root_.firrtl.AnnotationSeq
+import chisel3.incremental.Stash
+import chisel3.internal.firrtl._
 
 import scala.collection.mutable
 
@@ -82,7 +84,6 @@ private[chisel3] trait HasId extends InstanceId {
   private[chisel3] def _onModuleClose: Unit = {} // scalastyle:ignore method.name
   private[chisel3] val _parent: Option[BaseModule] = Builder.currentModule
   _parent.foreach(_.addId(this))
-
   private[chisel3] val _id: Long = Builder.idGen.next
 
   // TODO: remove this, but its removal seems to cause a nasty Scala compiler crash.
@@ -203,16 +204,18 @@ private[chisel3] class ChiselContext() {
   val bundleStack: ArrayBuffer[(Bundle, String, String, Int)] = ArrayBuffer()
 }
 
-private[chisel3] class DynamicContext() {
+private[chisel3] class DynamicContext(startingStash: Option[Stash] = None) {
   val globalNamespace = Namespace.empty
   val components = ArrayBuffer[Component]()
   val annotations = ArrayBuffer[ChiselAnnotation]()
   var currentModule: Option[BaseModule] = None
 
-  /** Contains a mapping from a elaborated module to their aspect
+  /** Contains a mapping from an elaborated module to their aspect
     * Set by [[ModuleAspect]]
     */
   val aspectModule: mutable.HashMap[BaseModule, BaseModule] = mutable.HashMap.empty[BaseModule, BaseModule]
+
+  val stash: Stash = startingStash.getOrElse(Stash(Map.empty, false))
 
   // Set by object Module.apply before calling class Module constructor
   // Used to distinguish between no Module() wrapping, multiple wrappings, and rewrapping
@@ -246,7 +249,6 @@ private[chisel3] object Builder {
     //  https://bugs.openjdk.java.net/browse/JDK-8037567
     //  https://stackoverflow.com/questions/28631656/runnable-thread-state-but-in-object-wait
   }
-
   def namingStackOption: Option[NamingStack] = dynamicContextVar.value.map(_.namingStack)
 
   def idGen: IdGen = chiselContext.value.idGen
@@ -256,8 +258,10 @@ private[chisel3] object Builder {
   def annotations: ArrayBuffer[ChiselAnnotation] = dynamicContext.annotations
   def namingStack: NamingStack = dynamicContext.namingStack
 
+  def stash: Option[Stash] = dynamicContextVar.value.map(_.stash)
+
   def currentModule: Option[BaseModule] = dynamicContextVar.value match {
-    case Some(dyanmicContext) => dynamicContext.currentModule
+    case Some(dynamicContext) => dynamicContext.currentModule
     case _ => None
   }
   def currentModule_=(target: Option[BaseModule]): Unit = {
@@ -374,6 +378,7 @@ private[chisel3] object Builder {
     * (Note: Map is Iterable[Tuple2[_,_]] and thus excluded)
     */
   def nameRecursively(prefix: String, nameMe: Any, namer: (HasId, String) => Unit): Unit = nameMe match {
+    case (id: InstanceHandle[_]) => namer(id.wrapper, prefix)
     case (id: HasId) => namer(id, prefix)
     case Some(elt) => nameRecursively(prefix, elt, namer)
     case (iter: Iterable[_]) if iter.hasDefiniteSize =>
@@ -399,19 +404,35 @@ private[chisel3] object Builder {
     throwException(m)
   }
 
-  def build[T <: RawModule](f: => T): (Circuit, T) = {
+  /*
+  def reload[T <: RawModule](f: => T): T = {
     chiselContext.withValue(new ChiselContext) {
       dynamicContextVar.withValue(Some(new DynamicContext())) {
-        errors.info("Elaborating design...")
+        errors.info("Reloading design...")
         val mod = f
         mod.forceName(mod.name, globalNamespace)
         errors.checkpoint()
-        errors.info("Done elaborating.")
-
-        (Circuit(components.last.name, components, annotations), mod)
+        errors.info("Done reloading.")
+        mod
       }
-   }
+    }
   }
+   */
+
+  def build[T <: RawModule](f: => T, stashOpt: Option[Stash] = None): (Circuit, T, Stash) = {
+    chiselContext.withValue(new ChiselContext) {
+      dynamicContextVar.withValue(Some(new DynamicContext(stashOpt))) {
+        errors.info("Elaborating design...")
+        val mod = f
+        mod.forceName(mod.name, globalNamespace)
+        Builder.dynamicContext.stash.store(mod)
+        errors.checkpoint()
+        errors.info("Done elaborating.")
+        (Circuit(components.last.name, components, annotations), mod, Builder.dynamicContext.stash)
+      }
+    }
+  }
+
   initializeSingletons()
 }
 

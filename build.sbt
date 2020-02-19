@@ -11,6 +11,7 @@ def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
       case Some((2, scalaMajor: Long)) if scalaMajor < 12 => Seq()
       case _ => Seq("-Xsource:2.11")
     }
+
   }
 }
 
@@ -42,6 +43,7 @@ lazy val commonSettings = Seq (
   crossScalaVersions := Seq("2.12.10", "2.11.12"),
   scalacOptions := Seq("-deprecation", "-feature") ++ scalacOptionsVersion(scalaVersion.value),
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+  libraryDependencies += "com.twitter" %% "chill" % "0.9.4",
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
   (scalastyleConfig in Test) := (baseDirectory in root).value / "scalastyle-test-config.xml",
   // Use the root project's unmanaged base for all sub-projects.
@@ -107,7 +109,8 @@ lazy val chiselSettings = Seq (
     "junit" % "junit" % "4.12" % "test",
     "org.scalatest" %% "scalatest" % "3.0.8" % "test",
     "org.scalacheck" %% "scalacheck" % "1.14.3" % "test",
-    "com.github.scopt" %% "scopt" % "3.7.1"
+    "com.github.scopt" %% "scopt" % "3.7.1",
+    "com.twitter" %% "chill" % "0.9.4"
   ),
   javacOptions ++= javacOptionsVersion(scalaVersion.value)
 ) ++ (

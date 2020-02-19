@@ -18,6 +18,13 @@ object ChiselMainSpec {
     out := in
   }
 
+  /** A simple module */
+  class SimpleModule extends RawModule {
+    val in = IO(UInt(1.W))
+    val out = IO(UInt(1.W))
+    out := in
+  }
+
 }
 
 class ChiselMainSpec extends FeatureSpec with GivenWhenThen with Matchers with chiselTests.Utils {
@@ -99,6 +106,7 @@ class ChiselMainSpec extends FeatureSpec with GivenWhenThen with Matchers with c
     }
   }
 
+  /*
   info("As a Chisel user")
   info("I screw up and compile some bad code")
   feature("Stack trace trimming") {
@@ -112,6 +120,20 @@ class ChiselMainSpec extends FeatureSpec with GivenWhenThen with Matchers with c
                      stdout = Some("org.scalatest"),
                      result = 1)
     ).foreach(runStageExpectFiles)
+  }
+
+   */
+
+  info("As a Chisel user")
+  info("I want to export my stash")
+  feature("Stash export as cache") {
+    Seq(
+      ChiselMainTest(args = Array("-X", "low", "--export-cache", "test::test_run_dir/FirrtlStageSpec/artifacts"),
+        generator = Some(classOf[SimpleModule]),
+        files = Seq("artifacts/blah.cache")
+      )
+    ).foreach(runStageExpectFiles)
+
   }
 
 }

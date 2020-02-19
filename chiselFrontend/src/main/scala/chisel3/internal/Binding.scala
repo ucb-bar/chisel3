@@ -4,6 +4,7 @@ package chisel3.internal
 
 import chisel3._
 import chisel3.experimental.BaseModule
+import chisel3.incremental.Stash
 import chisel3.internal.firrtl.LitArg
 
 /** Requires that a node is hardware ("bound")
@@ -80,6 +81,10 @@ sealed trait ConstrainedBinding extends TopBinding {
     // inside vs outside instance checking, etc.
     Builder.aspectModule(enclosure) match {
       case None => Some(enclosure)
+      //Stash.getActiveLink(enclosure._id) match {
+      //    case None => Some(enclosure)
+          //case Some(id) => Some(Stash.module(id))
+        //}
       case Some(aspect) => Some(aspect)
     }
   }

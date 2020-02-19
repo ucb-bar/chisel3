@@ -13,6 +13,7 @@ import _root_.firrtl.PrimOps
 
 import scala.collection.immutable.NumericRange
 import scala.math.BigDecimal.RoundingMode
+import chisel3.incremental.Stash
 
 // scalastyle:off number.of.types
 
@@ -71,6 +72,9 @@ abstract class Arg {
 }
 
 case class Node(id: HasId) extends Arg {
+  //val original = Builder.currentModule.flatMap(m => Stash.getActiveParent(m._id))
+  //val link = parent.flatMap(Stash.getActiveLink)
+  //println(s"Node: parent=$parent, link=$link, currentmod=${Builder.currentModule}")
   override def fullName(ctx: Component): String = id.getOptionRef match {
     case Some(arg) => arg.fullName(ctx)
     case None => id.suggestedName.getOrElse("??")
@@ -141,7 +145,7 @@ case class IntervalLit(n: BigInt, w: Width, binaryPoint: BinaryPoint) extends Li
 case class Ref(name: String) extends Arg
 case class ModuleIO(mod: BaseModule, name: String) extends Arg {
   override def fullName(ctx: Component): String =
-    if (mod eq ctx.id) name else s"${mod.getRef.name}.$name"
+    if (mod == ctx.id) name else s"${mod.getRef.name}.$name"
 }
 case class Slot(imm: Node, name: String) extends Arg {
   override def fullName(ctx: Component): String =
