@@ -20,6 +20,8 @@ class UIntOps extends Module {
     val modout = Output(UInt(32.W))
     val lshiftout = Output(UInt(32.W))
     val rshiftout = Output(UInt(32.W))
+    val lrotateout = Output(UInt(32.W))
+    val rrotateout = Output(UInt(32.W))
     val lessout = Output(Bool())
     val greatout = Output(Bool())
     val eqout = Output(Bool())
@@ -40,6 +42,8 @@ class UIntOps extends Module {
   io.modout := a % b
   io.lshiftout := (a << b(3, 0))(31, 0)
   io.rshiftout := a >> b
+  io.lrotateout := a.rotateLeft(5)
+  io.rrotateout := a.rotateRight(5)
   io.lessout := a < b
   io.greatout := a > b
   io.eqout := a === b
@@ -65,6 +69,8 @@ class UIntOpsTester(a: Long, b: Long) extends BasicTester {
   assert(dut.io.modout === (a % (b max 1)).U(32.W))
   assert(dut.io.lshiftout === (a << (b % 16)).U(32.W))
   assert(dut.io.rshiftout === (a >> b).U(32.W))
+  assert(dut.io.lrotateout === s"h${Integer.rotateLeft(a.toInt, 5).toHexString}".U(32.W) )
+  assert(dut.io.rrotateout === s"h${Integer.rotateRight(a.toInt, 5).toHexString}".U(32.W) )
   assert(dut.io.lessout === (a < b).B)
   assert(dut.io.greatout === (a > b).B)
   assert(dut.io.eqout === (a == b).B)
@@ -94,6 +100,38 @@ class BadBoolConversion extends Module {
 class NegativeShift(t: => Bits) extends Module {
   val io = IO(new Bundle {})
   Reg(t) >> -1
+}
+
+class RotateRight extends BasicTester {
+  assert(1.U(3.W).rotateRight(1) === "b100".U)
+  assert(1.U(3.W).rotateRight(1.U) === "b100".U)
+  assert(1.U(3.W).rotateRight(2) === "b010".U)
+  assert(1.U(3.W).rotateRight(2.U) === "b010".U)
+  assert(1.U(3.W).rotateRight(3) === "b001".U)
+  assert(1.U(3.W).rotateRight(3.U) === "b001".U)
+  assert(3.U(3.W).rotateRight(1) === "b101".U)
+  assert(3.U(3.W).rotateRight(1.U) === "b101".U)
+  assert(3.U(3.W).rotateRight(2) === "b110".U)
+  assert(3.U(3.W).rotateRight(2.U) === "b110".U)
+  assert(3.U(3.W).rotateRight(3) === "b011".U)
+  assert(3.U(3.W).rotateRight(3.U) === "b011".U)
+  stop()
+}
+
+class RotateLeft extends BasicTester {
+  assert(1.U(3.W).rotateLeft(1) === "b010".U)
+  assert(1.U(3.W).rotateLeft(1.U) === "b010".U)
+  assert(1.U(3.W).rotateLeft(2) === "b100".U)
+  assert(1.U(3.W).rotateLeft(2.U) === "b100".U)
+  assert(1.U(3.W).rotateLeft(3) === "b001".U)
+  assert(1.U(3.W).rotateLeft(3.U) === "b001".U)
+  assert(3.U(3.W).rotateLeft(1) === "b110".U)
+  assert(3.U(3.W).rotateLeft(1.U) === "b110".U)
+  assert(3.U(3.W).rotateLeft(2) === "b101".U)
+  assert(3.U(3.W).rotateLeft(2.U) === "b101".U)
+  assert(3.U(3.W).rotateLeft(3) === "b011".U)
+  assert(3.U(3.W).rotateLeft(3.U) === "b011".U)
+  stop()
 }
 
 class UIntLitExtractTester extends BasicTester {
@@ -134,6 +172,14 @@ class UIntOpsSpec extends ChiselPropSpec with Matchers {
 
   property("Negative shift amounts are invalid") {
     a [ChiselException] should be thrownBy { elaborate(new NegativeShift(UInt())) }
+  }
+
+  property("rotateRight should work for all dynamic and static shift values") {
+    assertTesterPasses(new RotateRight)
+  }
+
+  property("rotateLeft should work for all dynamic and static shift values") {
+    assertTesterPasses(new RotateLeft)
   }
 
   property("Bit extraction on literals should work for all non-negative indices") {
