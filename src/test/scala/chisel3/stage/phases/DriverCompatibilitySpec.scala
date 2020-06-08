@@ -5,8 +5,7 @@ package chisel3.stage.phases
 
 import chisel3.stage.{NoRunFirrtlCompilerAnnotation, ChiselOutputFileAnnotation}
 
-import firrtl.options.{OutputAnnotationFileAnnotation, StageOptions}
-import firrtl.options.Viewer.view
+import firrtl.options.OutputAnnotationFileAnnotation
 import firrtl.stage.phases.DriverCompatibility.TopNameAnnotation
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
