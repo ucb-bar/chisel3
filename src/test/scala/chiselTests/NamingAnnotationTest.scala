@@ -178,9 +178,25 @@ object NonNamedHelper {
   }
 }
 
+object AllNamedHelper {
+  case class Blah(u: UInt)
+  @chiselName
+  def NamedFunction(): Blah = { // scalastyle:ignore method.name
+    val myVal = 1.U + 2.U
+    Blah(myVal)
+  }
+
+}
+
 @chiselName
 class NonNamedFunction extends NamedModuleTester {
   val test = NonNamedHelper.NamedFunction()
+}
+
+@chiselName
+class AllNamedFunction extends NamedModuleTester {
+  val test = AllNamedHelper.NamedFunction()
+  expectName(test.u, "test")
 }
 
 /** Ensure broken links in the chain are simply dropped
@@ -272,5 +288,11 @@ class NamingAnnotationSpec extends ChiselPropSpec {
     var module: NoChiselNamePrefixTester = null
     ChiselStage.elaborate { module = new NoChiselNamePrefixTester; module }
     assert(module.getNameFailures().isEmpty)
+  }
+
+  property("All helper functions in annotated object should give names") {
+    var module: AllNamedFunction = null
+    elaborate { module = new AllNamedFunction; module }
+    assert(module.getNameFailures() == Nil)
   }
 }
