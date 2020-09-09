@@ -36,6 +36,15 @@ object Module extends SourceInfoDoc {
     }
     Builder.readyForModuleConstr = true
 
+    // This can occur if you create and Instance of a Module who mixes a trait which does not have a BaseModule self
+    //  type, and that trait calls Module(new Blah).
+    if(Builder.currentModule.flatMap(_.backingModule).isDefined) {
+      // This is a module that shouldn't be instantiated. Error gracefully
+      throwException("Error: Called Module() within an instance. Do you need to add" +
+        " a self-type of BaseModule to a trait?")
+      //return null.asInstanceOf[T]
+    }
+
     val parent = Builder.currentModule
     val parentWhenStack = Builder.whenStack
 
@@ -67,12 +76,14 @@ object Module extends SourceInfoDoc {
     Builder.currentReset = saveReset
 
     val component = module.generateComponent()
-    Builder.components += component
+    if(module.backingModule.isEmpty) {
+      Builder.components += component
+    }
 
     Builder.setPrefix(savePrefix)
 
     // Handle connections at enclosing scope
-    if(!Builder.currentModule.isEmpty) {
+    if(!Builder.currentModule.isEmpty && module.backingModule.isEmpty) {
       pushCommand(DefInstance(sourceInfo, module, component.ports))
       module.initializeInParent(compileOptions)
     }
@@ -168,8 +179,28 @@ package experimental {
     }
     readyForModuleConstr = false
 
+    def useInstance[X](thing: X): X = {
+      backingModule match {
+        case Some((module, instance)) =>
+          val portMap = module.getModulePorts.zip(instance.io.elements.values).toMap
+          thing match {
+            case d: Data if portMap.contains(d) => portMap(d).asInstanceOf[X]
+            case _ => thing
+          }
+        case _ => thing
+      }
+    }
+
     Builder.currentModule = Some(this)
     Builder.whenStack = Nil
+
+    private[chisel3] val backingModule: Option[(BaseModule, BlackBox)] = {
+      val back = Builder.getBackingModule()
+      // Only ever get one backing module. Proper use shouldn't hit this, but realistically incorrect code can and
+      //  this will help give better error messages.
+      Builder.clearBackingModule()
+      back
+    }
 
     //
     // Module Construction Internals
