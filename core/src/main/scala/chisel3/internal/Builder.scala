@@ -311,6 +311,8 @@ private[chisel3] trait NamedComponent extends HasId {
 private[chisel3] class ChiselContext() {
   val idGen = new IdGen
 
+  val instanceMap = mutable.HashMap[InstanceKey, BlackBox]()
+
   // Record the Bundle instance, class name, method name, and reverse stack trace position of open Bundles
   val bundleStack: ArrayBuffer[(Bundle, String, String, Int)] = ArrayBuffer()
 
@@ -378,6 +380,14 @@ private[chisel3] object Builder {
   def components: ArrayBuffer[Component] = dynamicContext.components
   def annotations: ArrayBuffer[ChiselAnnotation] = dynamicContext.annotations
   def namingStack: NamingStack = dynamicContext.namingStack
+
+  def addInstance(key: InstanceKey, instance: BlackBox): Unit = {
+    chiselContext.get.instanceMap(key) = instance
+  }
+
+  def getInstance(key: InstanceKey): Option[BlackBox] = {
+    chiselContext.get.instanceMap.get(key)
+  }
 
   // Puts either a prefix string or hasId onto the prefix stack
   def pushPrefix(d: Either[String, HasId]): Unit = {
