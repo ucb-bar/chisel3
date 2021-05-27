@@ -171,4 +171,11 @@ package object experimental {
   abstract class BaseSim extends NamedComponent {
     _parent.foreach(_.addId(this))
   }
+
+  /** Append code block to the last of this Module instantiate. */
+  def registerFinishAction(block: () => Unit, module: BaseModule = Module.currentModule.get): Unit = {
+    require(!module.isClosed, "cannot insert code block to a closed Module.")
+    module.finishActions.append(block)
+  }
+
 }
