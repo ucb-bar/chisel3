@@ -44,33 +44,7 @@ chisel3.stage.ChiselStage.emitVerilog(new MyModule)
 
 ### How do I view a Bundle as a parent type when the parent type is abstract (like a trait)?
 
-When trying to view a Bundle as a parent `trait`, you may see an error like the following:
-
-```scala mdoc:fail:reset
-import chisel3._
-import chisel3.experimental.dataview._
-
-trait Super extends Bundle {
-  def bitwidth: Int
-  val a = UInt(bitwidth.W)
-}
-class Foo(val bitwidth: Int) extends Super {
-  val foo = UInt(8.W)
-}
-class Bar(val bitwidth: Int) extends Super {
-  val bar = UInt(8.W)
-}
-class MyModule extends Module {
-  val foo = IO(Input(new Foo(8)))
-  val bar = IO(Output(new Bar(8)))
-  bar.viewAs(new Super) := foo.viewAs(new Super)
-}
-```
-
-The problem is that `viewAs` requires an object to use as a type template (so that it can be cloned),
-but `traits` are abstract and cannot be instantiated.
-The solution is to create an instance of an _anonymous class_ and use that object as the argument to `viewAs`.
-We can do this like so:
+Given the following `Bundles` that share a common `trait`:
 
 ```scala mdoc:silent:reset
 import chisel3._
@@ -86,13 +60,33 @@ class Foo(val bitwidth: Int) extends Super {
 class Bar(val bitwidth: Int) extends Super {
   val bar = UInt(8.W)
 }
+```
+
+`Foo` and `Bar` cannot be connected directly, but they could be connected by viewing them both as if
+they were instances of their common supertype, `Super`.
+A straightforward approach might run into an issue like the following:
+
+```scala mdoc:fail
+class MyModule extends Module {
+  val foo = IO(Input(new Foo(8)))
+  val bar = IO(Output(new Bar(8)))
+  bar.viewAs(new Super) := foo.viewAs(new Super)
+}
+```
+
+The problem is that `viewAs` requires an object to use as a type template (so that it can be cloned),
+but `traits` are abstract and cannot be instantiated.
+The solution is to create an instance of an _anonymous class_ and use that object as the argument to `viewAs`.
+We can do this like so:
+
+```scala mdoc:silent
 class MyModule extends Module {
   val foo = IO(Input(new Foo(8)))
   val bar = IO(Output(new Bar(8)))
   val tpe = new Super { // Adding curly braces creates an anonymous class
     def bitwidth = 8 // We must implement any abstract methods
   }
-  bar.viewAs(new Super) := foo.viewAs(new Super)
+  bar.viewAs(tpe) := foo.viewAs(tpe)
 }
 ```
 By adding curly braces after the name of the trait, we're telling Scala to create a new concrete

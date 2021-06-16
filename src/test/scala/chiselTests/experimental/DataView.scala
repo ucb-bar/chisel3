@@ -322,7 +322,7 @@ class DataViewSpec extends ChiselFlatSpec {
     class MyModule extends Module {
       val a, b, c = IO(Input(UInt(8.W)))
       val x, y, z = IO(Output(UInt(8.W)))
-      val asSeq: Vec[UInt] = Seq(a, b, c).viewAs(Vec(3, UInt()))
+      val asSeq = Seq(a, b, c).viewAs(Vec(3, UInt()))
       asSeq := VecInit(a, b, c)
     }
     // Verilog instead of CHIRRTL because the optimizations make it much prettier
