@@ -6,9 +6,81 @@ section: "chisel3"
 
 # DataView Cookbook
 
+* [How do I view a Data as a UInt or vice versa?](#how-do-i-view-a-data-as-a-uint-or-vice-versa)
+* [How do I create a DataView for a Bundle has a type parameter?](#how-do-i-create-a-dataview-for-a-bundle-has-a-type-parameter)
+* [How do I create a DataView for a Bundle with optional fields?](#how-do-i-create-a-dataview-for-a-bundle-with-optional-fields)
 * [How do I connect a subset of Bundle fields?](#how-do-i-connect-a-subset-of-bundle-fields)
     * [How do I view a Bundle as a parent type (superclass)?](#how-do-i-view-a-bundle-as-a-parent-type-superclass)
     * [How do I view a Bundle as a parent type when the parent type is abstract (like a trait)?](#how-do-i-view-a-bundle-as-a-parent-type-when-the-parent-type-is-abstract-like-a-trait)
+
+## How do I view a Data as a UInt or vice versa?
+
+Subword viewing (using concatenations or bit extractions in `DataViews`) is not yet supported.
+We intend to implement this in the future, but for the time being, use regular casts
+(`.asUInt` and `.asTypeOf`).
+
+## How do I create a DataView for a Bundle has a type parameter?
+
+Instead of using a `val`, use a `def` which can have type parameters:
+
+```scala mdoc:silent:reset
+import chisel3._
+import chisel3.experimental.dataview._
+
+class Foo[T <: Data](val foo: T) extends Bundle
+class Bar[T <: Data](val bar: T) extends Bundle
+
+object Foo {
+  implicit def view[T <: Data]: DataView[Foo[T], Bar[T]] =
+    DataView(_.foo -> _.bar)
+}
+```
+
+```scala mdoc:invisible
+// Make sure this works during elaboration, not part of doc
+class MyModule extends RawModule {
+  val in = IO(Input(new Foo(UInt(8.W))))
+  val out = IO(Output(new Bar(UInt(8.W))))
+  out := in.viewAs(new Bar(UInt(8.W)))
+}
+chisel3.stage.ChiselStage.emitVerilog(new MyModule)
+```
+
+## How do I create a DataView for a Bundle with optional fields?
+
+Instead of using the default `DataView` apply method, use `DataView.mapping`:
+
+```scala mdoc:silent:reset
+import chisel3._
+import chisel3.experimental.dataview._
+
+class Foo(w: Option[Int]) extends Bundle {
+  val foo = UInt(8.W)
+  val opt = w.map(x => UInt(x.W))
+}
+class Bar(w: Option[Int]) extends Bundle {
+  val bar = UInt(8.W)
+  val opt = w.map(x => UInt(x.W))
+}
+
+object Foo {
+  implicit val view: DataView[Foo, Bar] =
+    DataView.mapping { case (f, b) =>
+      // Note that we can append options since they are iterable just like Lists!
+      List(f.foo -> b.bar) ++ f.opt.map(_ -> b.opt.get)
+    }
+}
+```
+
+```scala mdoc:invisible
+// Make sure this works during elaboration, not part of doc
+class MyModule extends RawModule {
+  val in = IO(Input(new Foo(Some(8))))
+  val out = IO(Output(new Bar(Some(8))))
+  out := in.viewAs(new Bar(Some(8)))
+}
+chisel3.stage.ChiselStage.emitVerilog(new MyModule)
+```
 
 ## How do I connect a subset of Bundle fields?
 

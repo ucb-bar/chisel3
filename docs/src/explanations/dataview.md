@@ -146,6 +146,26 @@ This will generate Verilog that matches the standard naming convention:
 emitVerilog(new AXIStub)
 ```
 
+Note that if both the _Target_ and the _View_ types are subtypes of `Data` (as they are in this example),
+the `DataView` is _invertible_. This means that in addition to viewing `VerilogAXIBundles` as `AXIBundles`,
+we can view `AXIBundles` as `VerilogAXIBundles`.
+The following example shows this and illustrates another use case of `DataView`—connecting unrelated
+types:
+
+```scala mdoc
+class ConnectionExample extends RawModule {
+  val in = IO(new AXIBundle)
+  val out = IO(Flipped(new VerilogAXIBundle))
+  out.viewAs(new AXIBundle) <> in
+}
+```
+
+This results in the corresponding fields being connected in the emitted Verilog:
+
+```scala mdoc:verilog
+emitVerilog(new ConnectionExample)
+```
+
 ## Other Use Cases
 
 ## Advanced Details
