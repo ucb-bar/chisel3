@@ -22,14 +22,16 @@ trait DataProduct[-A] {
     */
   def dataIterator(a: A, path: String): Iterator[(Data, String)]
 
-  /** Test whether the given element exists within A
+  /** Returns a checker to test if the containing object contains a `Data` object
     * @note Implementers may want to override if iterating on all `Data` is expensive for `A` and `A`
     *       will primarily be used in `PartialDataViews`
+    * @note The returned value is a function, not a true Set, but is describing the functionality of
+    *       Set containment
     * @param a Containing object
-    * @param elt The element to test
-    * @return True if `elt` is contained in `a` as determined by a `==` test
+    * @return A checker that itself returns True if a given `Data` is contained in `a`
+    *         as determined by an `==` test
     */
-  def contains(a: A, elt: Data): Boolean = dataIterator(a, "").exists(_._1 == elt)
+  def dataSet(a: A): Data => Boolean = dataIterator(a, "").map(_._1).toSet
 }
 
 object DataProduct {
@@ -41,8 +43,8 @@ object DataProduct {
   implicit val userModuleDataProduct: DataProduct[RawModule] = new DataProduct[RawModule] {
     def dataIterator(a: RawModule, path: String): Iterator[(Data, String)] = ???
     // Overridden for performance
-    override def contains(a: RawModule, elt: Data): Boolean = {
-      elt._id > a._id && elt._id <= a._lastId
+    override def dataSet(a: RawModule): Data => Boolean = { e =>
+      e._id > a._id && e._id <= a._lastId
     }
   }
 }
