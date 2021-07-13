@@ -351,4 +351,7 @@ class DataViewSpec extends ChiselFlatSpec {
     }
     val verilog = ChiselStage.emitVerilog(new MyModule)
   }
+
+  // TODO Tests to write
+  // Aggregate View on target side of another mapping where 1 field comes from outside (should error)
 }

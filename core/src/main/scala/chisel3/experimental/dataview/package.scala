@@ -17,11 +17,17 @@ package object dataview {
     throw InvalidViewException(msg)
   }
 
+  // Safe for unbound
+  private def isView(d: Data): Boolean = d.topBindingOpt.exists {
+    case (_: ViewBinding | _: AggregateViewBinding) => true
+    case _ => false
+  }
+
   // TODO should this be moved to class Aggregate / can it be unified with Aggregate.bind?
   private def bindAgg[T : DataProduct, V <: Aggregate](target: T, view: V, mapping: Iterable[(Data, Data)]): Unit = {
     // Lookups to check the mapping results
     val viewFieldLookup: Map[Data, String] = getRecursiveFields(view, "_").toMap
-    val targetFieldLookup: Map[Data, String] =  implicitly[DataProduct[T]].dataIterator(target, "_").toMap
+    val targetContains: Data => Boolean = implicitly[DataProduct[T]].dataSet(target)
 
     // Resulting bindings for each Element of the View
     val childBindings =
@@ -30,11 +36,13 @@ package object dataview {
           .collect { case (elt: Element, _) => elt }
           .map(_ -> new mutable.ListBuffer[Element])
 
+    def iterate(tx: Data, vx: Data): Unit = ???
+
     for ((ax, bx) <- mapping) {
-      def err(arg: Data) =
-        throw new Exception(s"View mapping must only contain Elements within the two types, got $arg")
-      val fieldName = viewFieldLookup.getOrElse(bx, err(bx))
-      targetFieldLookup.getOrElse(ax, err(ax))
+      def err(name: String, arg: Data) =
+        throw new Exception(s"View mapping must only contain Elements within the $name, got $arg")
+      val fieldName = viewFieldLookup.getOrElse(bx, err("View", bx))
+      if (!targetContains(ax)){ err("Target", ax) }
 
       bx match {
         // Special cased because getMatchedFields checks typeEquivalence on Elements (and is used in Aggregate path)

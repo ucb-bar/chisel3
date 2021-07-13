@@ -19,9 +19,9 @@ DataView is a mechanism for "viewing" Scala objects as a subtype of `chisel3.Dat
 Often, this is useful for viewing one subtype of `chisel3.Data`, as another.
 One can think about a `DataView` as a mapping from a _Target_ type `T` to a _View_ type `V`.
 This is similar to a cast (eg. `.asTypeOf`) with a few differences:
-1. Views are mutable—connections to the view will occur on the target
+1. Views are _connectable_—connections to the view will occur on the target
 2. Whereas casts are _structural_ (a reinterpretation of the underling bits), a DataView is a customizable mapping
-3. Views can be _partial_, not every field in the target must be included in the mapping
+3. Views can be _partial_—not every field in the target must be included in the mapping
 
 ## A Motivating Example (AXI4)
 
@@ -168,10 +168,221 @@ emitVerilog(new ConnectionExample)
 
 ## Other Use Cases
 
+While the ability to map between `Bundle` types as in the AXI4 example is pretty compelling,
+DataView has many other applications.
+Importantly, because the _Target_ of the `DataView` need not be a `Data`, it provides a way to use
+`non-Data` objects with APIs that require `Data`.
+
+### Tuples
+
+Perhaps the most helpful use of `DataView` for a non-`Data` type is viewing Scala tuples as `Bundles`.
+For example, in Chisel prior to the introduction of `DataView`, one might try to `Mux` tuples and
+see an error like the following:
+
+<!-- Todo will need to ensure built-in code for Tuples is suppressed once added to stdlib -->
+
+```scala mdoc:fail
+class TupleExample extends RawModule {
+  val a, b, c, d = IO(Input(UInt(8.W)))
+  val cond = IO(Input(Bool()))
+  val x, y = IO(Output(UInt(8.W)))
+  (x, y) := Mux(cond, (a, b), (c, d))
+}
+```
+
+The issue, is that Chisel primitives like `Mux` and `:=` only operate on subtypes of `Data` and
+Tuples (as members of the Scala standard library), are not subclasses of `Data`.
+`DataView` provides a mechanism to _view_ a `Tuple` as if it were a `Data`:
+
+<!-- TODO replace this with stdlib import -->
+
+```scala mdoc:invisible
+// ProductDataProduct
+implicit val productDataProduct: DataProduct[Product] = new DataProduct[Product] {
+  def dataIterator(a: Product, path: String): Iterator[(Data, String)] = {
+    a.productIterator.zipWithIndex.collect { case (d: Data, i) => d -> s"$path._$i" }
+  }
+}
+```
+
+```scala mdoc
+// We need a type to represent the Tuple
+class HWTuple2[A <: Data, B <: Data](val _1: A, val _2: B) extends Bundle
+
+// Provide DataView mapping between Tuple and HWTuple
+implicit def view[A <: Data, B <: Data]: DataView[(A, B), HWTuple2[A, B]] =
+  DataView(_._1 -> _._1, _._2 -> _._2)
+```
+
+Now, we can use `.viewAs` to view Tuples as if they were subtypes of `Data`:
+
+```scala mdoc
+class TupleVerboseExample extends RawModule {
+  val a, b, c, d = IO(Input(UInt(8.W)))
+  val cond = IO(Input(Bool()))
+  val x, y = IO(Output(UInt(8.W)))
+  val tupleTpe = new HWTuple2(UInt(), UInt())
+  (x, y).viewAs(tupleTpe) := Mux(cond, (a, b).viewAs(tupleTpe), (c, d).viewAs(tupleTpe))
+}
+```
+
+This is much more verbose than the original idea of just using the Tuples directly as if they were `Data`.
+We can make this better by providing an implicit conversion that views a `Tuple` as a `HWTuple2`:
+
+```scala mdoc
+implicit def tuple2hwtuple[A <: Data, B <: Data](tup: (A, B)): HWTuple2[A, B] =
+  tup.viewAs(new HWTuple2(tup._1.cloneType, tup._2.cloneType))
+```
+
+Now, the original code just works!
+
+```scala mdoc
+class TupleExample extends RawModule {
+  val a, b, c, d = IO(Input(UInt(8.W)))
+  val cond = IO(Input(Bool()))
+  val x, y = IO(Output(UInt(8.W)))
+  (x, y) := Mux(cond, (a, b), (c, d))
+}
+```
+
+```scala mdoc:invisible
+// Always emit Verilog to make sure it actually works
+emitVerilog(new TupleExample)
+```
+
+Note that this example ignored `DataProduct` which is another required piece (see [the documentation
+about it below](#dataproduct)).
+
+All of this is slated to be included the Chisel standard library.
+
 ## Advanced Details
 
-### Type Classes in Scala
+`DataView` takes advantage of features of Scala that may be new to many users of Chisel—in particular
+[Type Classes](#type-classes).
 
-#### Implicit Resolution
+### Type Classes
+
+[Type classes](https://en.wikipedia.org/wiki/Type_class) are powerful language feature for writing
+polymorphic code.
+They are a common feature in "modern programming languages" like
+Scala,
+Swift (see [protocols](https://docs.swift.org/swift-book/LanguageGuide/Protocols.html)),
+and Rust (see [traits](https://doc.rust-lang.org/book/ch10-02-traits.html)). 
+Type classes may appear similar to inheritance in object-oriented programming but there are some
+important  differences:
+
+1. You can provide a type class for a type you don't own (eg. one defined in a 3rd party library,
+  the Scala standard library, or Chisel itself)
+2. You can write a single type class for many types that do not have a sub-typing relationship
+3. You can provide multiple different type classes for the same type
+
+For `DataView`, (1) is crucial because we want to be able to implement `DataViews` of built-in Scala
+types like tuples and `Seqs`. Furthermore, `DataView` has two type parameters (the _Target_ and the
+_View_ types) so inheritance does not really make sense—which type would `extend` `DataView`?
+
+In Scala 2, type classes are not a built-in language feature, but rather are implemented using implicits.
+There are great resources out there for interested readers:
+* [Basic Tutorial](https://scalac.io/blog/typeclasses-in-scala/)
+* [Fantastic Explanation on StackOverflow](https://stackoverflow.com/a/5598107/2483329)
+
+Note that Scala 3 has added built-in syntax for type classes that does not apply to Chisel 3 which
+currently only supports Scala 2.
+
+### Implicit Resolution
+
+Given that `DataView` is implemented using implicits, it is important to understand implicit
+resolution.
+Whenever the compiler sees an implicit argument is required, it first looks in _current scope_
+before looking in the _implicit scope_.
+
+1. Current scope
+    * Values defined in the current scope
+    * Explicit imports
+    * Wildcard imports
+2. Implicit scope
+    * Companion object of a type
+    * Implicit scope of an argument's type
+    * Implicit scope of type parameters
+    
+If at either stage, multiple implicits are found, then the static overloading rule is used to resolve
+it.
+Put simply, if one implicit applies to a more-specific type than the other, the more-specific one
+will be selected.
+If multiple implicits apply within a given stage, then the compiler throws an ambiguous implicit
+resolution error.
+
+
+This section draws heavily from [[1]](https://stackoverflow.com/a/5598107/2483329) and
+[[2]](https://stackoverflow.com/a/5598107/2483329).
+In particular, see [1] for examples.
+
+#### Implicit Resolution Example
+
+To help clarify a bit, let us consider how implicit resolution works for `DataView`.
+Consider the definition of `viewAs`:
+
+```scala
+def viewAs[V <: Data](view: V)(implicit dataView: DataView[T, V]): V
+```
+
+Armed with the knowledge from the previous section, we know that whenever we call `.viewAs`, the
+Scala compiler will first look for a `DataView[T, V]` in the current scope (defined in, or imported),
+then it will look in the companion objects of `DataView`, `T`, and `V`.
+This enables a fairly powerful pattern, namely that default or typical implementations of a `DataView`
+should be defined in the companion object for one of the two types.
+We can think about `DataViews` defined in this way as "low priority defaults".
+They can then be overruled by a specific import if a given user ever wants different behavior.
+For example:
+
+Given the following types:
+
+```scala mdoc
+class Foo extends Bundle {
+  val a = UInt(8.W)
+  val b = UInt(8.W)
+}
+class Bar extends Bundle {
+  val c = UInt(8.W)
+  val d = UInt(8.W)
+}
+object Foo {
+  implicit val view = DataView[Foo, Bar](_.a -> _.c, _.b -> _.d)
+}
+```
+
+This provides an implementation of `DataView` in the _implicit scope_ as a "default" mapping between
+`Foo` and `Bar` (and it doesn't even require an import!):
+
+```scala mdoc
+class FooToBar extends Module {
+  val foo = IO(Input(new Foo))
+  val bar = IO(Output(new Bar))
+  bar := foo.viewAs(new Bar)
+}
+```
+
+```scala mdoc:verilog
+emitVerilog(new FooToBar)
+```
+
+However, it's possible that some user of `Foo` and `Bar` wants different behavior,
+perhaps they would prefer more of "swizzling" behavior rather than a direct mapping:
+
+```scala mdoc
+object Swizzle {
+  implicit val swizzle = DataView[Foo, Bar](_.a -> _.d, _.b -> _.c)
+}
+// Current scope always wins over implicit scope
+import Swizzle._
+class FooToBarSwizzled extends Module {
+  val foo = IO(Input(new Foo))
+  val bar = IO(Output(new Bar))
+  bar := foo.viewAs(new Bar)
+}
+```
+
+```scala mdoc:verilog
+emitVerilog(new FooToBarSwizzled)
+```
 
 ### DataProduct
