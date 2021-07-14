@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         system: ["ubuntu-20.04"]
-        jvm: ["adopt@1.8"]
+        jvm: ["graalvm@21.1.0"]
         scala: ["2.13.6", "2.12.13"]
         verilator: ["4.204"]
         z3: ["4.8.10"]
@@ -106,8 +106,16 @@ jobs:
       - name: Documentation (Scala 2.12 only)
         if: matrix.scala == '2.12.13'
         run: sbt ++${{ matrix.scala }} docs/mdoc
-      - name: Test
+      - name: Test with treadle (PR only)
+        if: github.event_name == 'pull_request'
         run: sbt ++${{ matrix.scala }} test noPluginTests/test
+        env:
+          TEST_BACKEND: treadle
+      - name: Test (Push only)
+        if: github.event_name == 'push'
+        run: sbt ++${{ matrix.scala }} test noPluginTests/test
+        env:
+          TEST_BACKEND: verilator
       - name: Binary compatibility
         run: sbt ++${{ matrix.scala }} mimaReportBinaryIssues
 
