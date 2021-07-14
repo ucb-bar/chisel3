@@ -21,6 +21,11 @@ class Convert extends Phase {
   override def optionalPrerequisiteOf = Seq.empty
   override def invalidates(a: Phase) = false
 
+  override def invalidates(phase: Phase): Boolean = phase match {
+    case _: Elaborate => true
+    case _ => false
+  }
+
   def transform(annotations: AnnotationSeq): AnnotationSeq = annotations.flatMap {
     case a: ChiselCircuitAnnotation =>
       Some(a) ++
