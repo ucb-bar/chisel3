@@ -11,7 +11,8 @@ import annotation.implicitNotFound
 // TODO can this be a trait?
 // TODO what about views as the same type? What happens if the width or parameters are different?
 
-@implicitNotFound("Could not find implicit value for DataView[${T}, ${V}].\nPlease see <docs link>")
+@implicitNotFound("Could not find implicit value for DataView[${T}, ${V}].\n" +
+  "Please see https://www.chisel-lang.org/chisel3/docs/explanations/dataview#dataproduct")
 sealed class DataView[T : DataProduct, V <: Data] private[chisel3] (
   private[chisel3] val mapping: (T, V) => Iterable[(Data, Data)],
   val total: Boolean
@@ -141,7 +142,8 @@ object DataView {
   implicit def dataViewNotFound[T, V <: Data]: DataView[T, V] = macro dataViewNotFound_impl[T, V]
 
   def dataViewNotFound_impl[T, V](c: Context)(implicit t: c.WeakTypeTag[T], v: c.WeakTypeTag[V]): c.Tree = {
-    val msg = s"Could not find implicit value for DataView[${t.tpe}, ${v.tpe}].\nPlease see <docs link>."
+    val msg = s"Could not find implicit value for DataView[${t.tpe}, ${v.tpe}].\n" +
+      "Please see https://www.chisel-lang.org/chisel3/docs/explanations/dataview#dataproduct."
     c.abort(c.enclosingPosition, msg)
   }
 }

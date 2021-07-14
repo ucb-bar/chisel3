@@ -386,3 +386,73 @@ emitVerilog(new FooToBarSwizzled)
 ```
 
 ### DataProduct
+
+`DataProduct` is a type class used by `DataView` to validate the correctness of a user-provided mapping.
+In order for a type to be "viewable" (ie. the `Target` type of a `DataView`), it must have an
+implementation of `DataProduct`.
+
+For example, say we have some non-Bundle type:
+```scala mdoc
+// Loosely based on chisel3.util.Counter
+class MyCounter(width: Int) {
+  /** Indicates if the Counter is incrementing this cycle */
+  val active = WireDefault(false.B)
+  val value = RegInit(0.U(width.W))
+  def inc(): Unit = {
+    active := true.B
+    value := value + 1.U
+  }
+  def reset(): Unit = {
+    value := 0.U
+  }
+}
+```
+
+Say we want to view `MyCounter` as a `Valid[UInt]`:
+
+```scala mdoc:fail
+import chisel3.util.Valid
+implicit val counterView = DataView[MyCounter, Valid[UInt]](_.value -> _.bits, _.active -> _.valid)
+```
+
+As you can see, this fails Scala compliation.
+We need to provide an implementation of `DataProduct[MyCounter]` which provides Chisel a way to access
+the objects of type `Data` within `MyCounter`:
+
+```scala mdoc
+import chisel3.util.Valid
+implicit val counterProduct = new DataProduct[MyCounter] {
+  // The String part of the tuple is a String path to the object to help in debugging
+  def dataIterator(a: MyCounter, path: String): Iterator[(Data, String)] =
+    List(a.value -> s"$path.value", a.active -> s"$path.active").iterator
+}
+// Now this works
+implicit val counterView = DataView[MyCounter, Valid[UInt]](_.value -> _.bits, _.active -> _.valid)
+```
+
+Why is this useful?
+It primarily exists to help users if they accidentally leave a field out of the mapping,
+or accidentally include a `Data` in the mapping that isn't actually a part of the `Target`.
+
+For example, imagine we had forgotten to include `active` and `valid` in our `DataView`:
+
+```scala mdoc:invisible
+import chisel3.util.Valid
+```
+
+```scala mdoc:crash
+{ // Using an extra scope here to avoid a bug in mdoc (documentation generation)
+implicit val counterView = DataView[MyCounter, Valid[UInt]](_.value -> _.bits)
+class BadCounterModule extends Module {
+  val out = IO(Output(Valid(UInt())))
+  val counter = new MyCounter(8)
+  counter.inc()
+  out := counter.viewAs(Valid(UInt()))
+}
+// We must run Chisel to see the error
+emitVerilog(new BadCounterModule)
+}
+```
+
+As you can see, `DataProduct` allows Chisel to check that all fields of the Target type are included
+in the `DataView`!

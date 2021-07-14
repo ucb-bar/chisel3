@@ -12,7 +12,8 @@ import scala.annotation.implicitNotFound
   * Can be thought of as "can be the Target of a DataView".
   * @tparam A Type that has elements of type [[Data]]
   */
-@implicitNotFound("Could not find implicit value for DataProduct[${A}].\nPlease see <docs link>")
+@implicitNotFound("Could not find implicit value for DataProduct[${A}].\n" +
+  "Please see https://www.chisel-lang.org/chisel3/docs/explanations/dataview#dataproduct")
 trait DataProduct[-A] {
   /** Provides [[Data]] elements within some containing object
     *
