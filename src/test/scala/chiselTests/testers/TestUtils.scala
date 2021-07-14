@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package chisel3.testers
+package chiselTests.testers
 
-import TesterDriver.Backend
-import chisel3.{Bundle, RawModule}
 import chisel3.internal.firrtl.Circuit
 import chisel3.stage.ChiselStage
+import chisel3.{Bundle, RawModule}
+import chiselTests.testers.TesterDriver.Backend
 import firrtl.AnnotationSeq
 
 object TestUtils {
@@ -17,7 +17,7 @@ object TestUtils {
   val usingPlugin: Boolean = (new Bundle { def check = _usingPlugin }).check
   def elaborateNoReflectiveAutoCloneType(f: => RawModule): Circuit = {
     ChiselStage.elaborate {
-      chisel3.internal.Builder.allowReflectiveAutoCloneType = !usingPlugin
+      chisel3.hack.Builder.allowReflectiveAutoCloneType = !usingPlugin
       f
     }
   }
