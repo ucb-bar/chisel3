@@ -24,7 +24,7 @@ package object dataview {
   }
 
   // TODO should this be moved to class Aggregate / can it be unified with Aggregate.bind?
-  private def bindAgg[T : DataProduct, V <: Aggregate](target: T, view: V, mapping: Iterable[(Data, Data)]): Unit = {
+  private def doBind[T : DataProduct, V <: Data](target: T, view: V, mapping: Iterable[(Data, Data)], total: Boolean): Unit = {
     // Lookups to check the mapping results
     val viewFieldLookup: Map[Data, String] = getRecursiveFields(view, "_").toMap
     val targetContains: Data => Boolean = implicitly[DataProduct[T]].dataSet(target)
@@ -35,8 +35,6 @@ package object dataview {
         viewFieldLookup.view
           .collect { case (elt: Element, _) => elt }
           .map(_ -> new mutable.ListBuffer[Element])
-
-    def iterate(tx: Data, vx: Data): Unit = ???
 
     for ((ax, bx) <- mapping) {
       def err(name: String, arg: Data) =
@@ -66,22 +64,37 @@ package object dataview {
     }
 
     // Errors in totality of the View, use var List to keep fast path cheap (no allocation)
-    var nonTotalErrors: List[Data] = Nil
+    var viewNonTotalErrors: List[Data] = Nil
+    var targetNonTotalErrors: List[String] = Nil
+
+    val targetSeen: Option[mutable.Set[Data]] = if (total) Some(mutable.Set.empty[Data]) else None
 
     val resultBindings = childBindings.map { case (data, targets) =>
       val targetsx = targets match {
         case collection.Seq(target: Element) => target
         case collection.Seq() =>
-          nonTotalErrors = data :: nonTotalErrors
+          viewNonTotalErrors = data :: viewNonTotalErrors
           data.asInstanceOf[Element] // Return the Data itself, will error after this map, cast is safe
         case x =>
           throw new Exception(s"Got $x, expected Seq(_: Direct)")
       }
+      // TODO record and report aliasing errors
+      targetSeen.foreach(_ += targetsx)
       data -> targetsx
     }.toMap
 
-    if (nonTotalErrors != Nil) {
-      nonTotalViewException(view, nonTotalErrors.map(f => viewFieldLookup.getOrElse(f, f.toString)))
+
+
+    // Check for totality of Target
+    targetSeen.foreach { seen =>
+      val lookup = implicitly[DataProduct[T]].dataIterator(target, "_")
+      for (missed <- lookup.collect { case (d, name) if !seen(d) => name }) {
+        targetNonTotalErrors = missed :: targetNonTotalErrors
+      }
+    }
+    if (viewNonTotalErrors != Nil || targetNonTotalErrors != Nil) {
+      val allNonTotalErrors = targetNonTotalErrors ++ viewNonTotalErrors.map(f => viewFieldLookup.getOrElse(f, f.toString))
+      nonTotalViewException(view, allNonTotalErrors)
     }
 
     view.bind(AggregateViewBinding(resultBindings))
@@ -104,12 +117,7 @@ package object dataview {
       val result: V = view.cloneTypeFull
 
       val mapping = dataView.mapping(target, result)
-      result match {
-        case agg: Aggregate =>
-          bindAgg(target, agg, mapping)
-        case elt: Element =>
-          bindElt(target, elt, mapping)
-      }
+      doBind(target, result, mapping, dataView.total)
       result
     }
   }

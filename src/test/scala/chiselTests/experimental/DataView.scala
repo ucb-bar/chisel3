@@ -30,7 +30,7 @@ object VecBundleDataView {
 object ProductDataProduct {
   implicit val productDataProduct: DataProduct[Product] = new DataProduct[Product] {
     def dataIterator(a: Product, path: String): Iterator[(Data, String)] = {
-      a.productIterator.zipWithIndex.collect { case (d: Data, i) => d -> s"$path._$i" }
+      a.productIterator.zipWithIndex.collect { case (d: Data, i) => d -> s"$path._${i + 1}" }
     }
   }
 }
@@ -350,6 +350,18 @@ class DataViewSpec extends ChiselFlatSpec {
       v := VecInit[HWTuple2[UInt, UInt]]((0.U, 1.U), (2.U, 3.U))
     }
     val verilog = ChiselStage.emitVerilog(new MyModule)
+  }
+
+  it should "error if a view is non-total" in {
+    import ProductDataProduct._
+    implicit val dv = DataView[(UInt, UInt), UInt](_._1 -> _)
+    class MyModule extends Module {
+      val a, b = IO(Input(UInt(8.W)))
+      val out = IO(Output(UInt(8.W)))
+      out := (a, b).viewAs(UInt())
+    }
+    val err = the [InvalidViewException] thrownBy (ChiselStage.emitVerilog(new MyModule))
+    err.toString should include ("target field(s) '_._2' are missing")
   }
 
   // TODO Tests to write

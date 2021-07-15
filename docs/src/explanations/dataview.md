@@ -419,7 +419,7 @@ As you can see, this fails Scala compliation.
 We need to provide an implementation of `DataProduct[MyCounter]` which provides Chisel a way to access
 the objects of type `Data` within `MyCounter`:
 
-```scala mdoc
+```scala mdoc:silent
 import chisel3.util.Valid
 implicit val counterProduct = new DataProduct[MyCounter] {
   // The String part of the tuple is a String path to the object to help in debugging
